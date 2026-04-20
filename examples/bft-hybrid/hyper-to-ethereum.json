@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "note": "BFT hybrid — 2 required + 2-of-3 optional · hyper → ethereum — Horizen replaces StablecoinX (align optional DVNs across lanes)",
+  "src": "hyper",
+  "dst": "ethereum",
+  "oft": "",
+  "endpoint": "0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9",
+  "peerOft": "",
+  "ulnSend": {
+    "confirmations": "1",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A",
+      "0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f"
+    ],
+    "optionalDVNs": [
+      "0x32ffd21260172518a8844fec76a88c8f239c384b",
+      "0xae016a939935d6fe6185900d4c7c7c9b27366cac",
+      "0xbb83ecf372cbb6daa629ea9a9a53bec6d601f229"
+    ]
+  },
+  "ulnRecv": {
+    "confirmations": "15",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x8E49eF1DfAe17e547CA0E7526FfDA81FbaCA810A",
+      "0xc097ab8CD7b053326DFe9fB3E3a31a0CCe3B526f"
+    ],
+    "optionalDVNs": [
+      "0x32ffd21260172518a8844fec76a88c8f239c384b",
+      "0xae016a939935d6fe6185900d4c7c7c9b27366cac",
+      "0xbb83ecf372cbb6daa629ea9a9a53bec6d601f229"
+    ]
+  }
+}

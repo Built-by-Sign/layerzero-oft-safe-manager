@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "note": "BFT hybrid — 2 required + 2-of-3 optional · ethereum → hyper — Horizen replaces CCIP (CCIP adapter doesn't support all lanes)",
+  "src": "ethereum",
+  "dst": "hyper",
+  "oft": "",
+  "endpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+  "peerOft": "",
+  "ulnSend": {
+    "confirmations": "15",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x589dEDbD617e0CBcB916A9223F4d1300c294236b",
+      "0xa59BA433ac34D2927232918Ef5B2eaAfcF130BA5"
+    ],
+    "optionalDVNs": [
+      "0x373a6e5c0c4e89e24819f00aa37ea370917aaff4",
+      "0x380275805876ff19055ea900cdb2b46a94ecf20d",
+      "0xd56e4eab23cb81f43168f9f45211eb027b9ac7cc"
+    ]
+  },
+  "ulnRecv": {
+    "confirmations": "1",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x589dEDbD617e0CBcB916A9223F4d1300c294236b",
+      "0xa59BA433ac34D2927232918Ef5B2eaAfcF130BA5"
+    ],
+    "optionalDVNs": [
+      "0x373a6e5c0c4e89e24819f00aa37ea370917aaff4",
+      "0x380275805876ff19055ea900cdb2b46a94ecf20d",
+      "0xd56e4eab23cb81f43168f9f45211eb027b9ac7cc"
+    ]
+  }
+}

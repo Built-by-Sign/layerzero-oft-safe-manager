@@ -1,0 +1,22 @@
+{
+  "name": "layerzero-oft-safe-manager",
+  "version": "0.1.0",
+  "description": "Single-page UI to read, diff, and propose LayerZero V2 OFT config changes as Gnosis Safe multisig transactions.",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "bun run serve.ts",
+    "serve": "bun run serve.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Built-by-Sign/layerzero-oft-safe-manager.git"
+  },
+  "keywords": [
+    "layerzero",
+    "oft",
+    "gnosis-safe",
+    "multisig",
+    "cross-chain"
+  ]
+}

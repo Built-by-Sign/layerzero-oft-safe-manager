@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "note": "BFT hybrid — 2 required + 2-of-3 optional · base → bnb — Horizen replaces Polyhedra (align optional DVNs across lanes)",
+  "src": "base",
+  "dst": "bnb",
+  "oft": "",
+  "endpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+  "peerOft": "",
+  "ulnSend": {
+    "confirmations": "10",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x9e059a54699a285714207b43B055483E78FAac25",
+      "0xcd37CA043f8479064e10635020c65FfC005d36f6"
+    ],
+    "optionalDVNs": [
+      "0xa7b5189bca84cd304d8553977c7c614329750d99",
+      "0xc2a0c36f5939a14966705c7cec813163faeea1f0",
+      "0xd56e4eab23cb81f43168f9f45211eb027b9ac7cc"
+    ]
+  },
+  "ulnRecv": {
+    "confirmations": "20",
+    "requiredDVNCount": 2,
+    "optionalDVNCount": 3,
+    "optionalDVNThreshold": 2,
+    "requiredDVNs": [
+      "0x9e059a54699a285714207b43B055483E78FAac25",
+      "0xcd37CA043f8479064e10635020c65FfC005d36f6"
+    ],
+    "optionalDVNs": [
+      "0xa7b5189bca84cd304d8553977c7c614329750d99",
+      "0xc2a0c36f5939a14966705c7cec813163faeea1f0",
+      "0xd56e4eab23cb81f43168f9f45211eb027b9ac7cc"
+    ]
+  }
+}

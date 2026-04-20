@@ -1,0 +1,2462 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LayerZero OFT Safe Manager</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+    <!--ENV_INJECT-->
+    <script src="./networks.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+      :root {
+        --bg: #0a0a0b;
+        --surface: #111113;
+        --surface-2: #18181b;
+        --surface-3: #222225;
+        --border: #2a2a2e;
+        --border-active: #3f3f46;
+        --text: #e4e4e7;
+        --text-dim: #a1a1aa;
+        --text-muted: #71717a;
+        --accent: #22d3ee;
+        --accent-dim: rgba(34, 211, 238, 0.12);
+        --green: #4ade80;
+        --green-dim: rgba(74, 222, 128, 0.12);
+        --red: #f87171;
+        --red-dim: rgba(248, 113, 113, 0.12);
+        --yellow: #fbbf24;
+        --yellow-dim: rgba(251, 191, 36, 0.12);
+        --mono: "JetBrains Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--mono);
+        min-height: 100vh;
+        line-height: 1.5;
+        padding-bottom: 220px;
+      }
+      .app {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 32px 24px 40px;
+      }
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 28px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+        background: var(--accent);
+        color: #0a0a0b;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        border-radius: 4px;
+      }
+      .brand-title {
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .brand-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .wallet-area {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      button {
+        font-family: var(--mono);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 14px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      button:hover:not(:disabled) {
+        border-color: var(--border-active);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #0a0a0b;
+        border-color: var(--accent);
+        font-weight: 600;
+      }
+      button.primary:hover:not(:disabled) {
+        filter: brightness(1.08);
+      }
+      button.ghost {
+        background: transparent;
+      }
+      button.danger {
+        color: var(--red);
+        border-color: var(--red-dim);
+      }
+      input,
+      select,
+      textarea {
+        font-family: var(--mono);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 12px;
+        width: 100%;
+      }
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      label {
+        display: block;
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+        letter-spacing: 0.02em;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+      .card-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 14px;
+      }
+      .card-title {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .card-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .row.three {
+        grid-template-columns: 1fr 1fr 1fr;
+      }
+      .row.full {
+        grid-template-columns: 1fr;
+      }
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+      .pill {
+        display: inline-block;
+        padding: 2px 8px;
+        font-size: 10px;
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        margin-right: 6px;
+      }
+      .pill.ok {
+        color: var(--green);
+        border-color: var(--green-dim);
+        background: var(--green-dim);
+      }
+      .pill.warn {
+        color: var(--yellow);
+        border-color: var(--yellow-dim);
+        background: var(--yellow-dim);
+      }
+      .pill.dirty {
+        color: var(--accent);
+        border-color: var(--accent-dim);
+        background: var(--accent-dim);
+      }
+      .dvn-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dvn-row {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 6px;
+        align-items: center;
+      }
+      .dvn-row input {
+        font-size: 11px;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .log {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        padding: 10px 12px;
+        font-size: 11px;
+        color: var(--text-dim);
+        max-height: 200px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log-line {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin-bottom: 3px;
+        padding: 2px 6px;
+        border-left: 2px solid transparent;
+      }
+      .log-line .log-ts {
+        color: var(--text-muted);
+        font-size: 10px;
+        flex: 0 0 auto;
+      }
+      .log-line .log-icon {
+        flex: 0 0 auto;
+        font-weight: 700;
+        width: 12px;
+        text-align: center;
+      }
+      .log-line .log-msg {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .log-line.info {
+        color: var(--text-dim);
+        border-left-color: var(--border-active);
+      }
+      .log-line.info .log-icon { color: var(--accent); }
+      .log-line.ok {
+        color: var(--green);
+        background: var(--green-dim);
+        border-left-color: var(--green);
+      }
+      .log-line.ok .log-icon { color: var(--green); }
+      .log-line.warn {
+        color: var(--yellow);
+        background: var(--yellow-dim);
+        border-left-color: var(--yellow);
+      }
+      .log-line.warn .log-icon { color: var(--yellow); }
+      .log-line.err {
+        color: var(--red);
+        background: var(--red-dim);
+        border-left-color: var(--red);
+        font-weight: 500;
+      }
+      .log-line.err .log-icon { color: var(--red); }
+      .hex {
+        font-size: 11px;
+        color: var(--text-muted);
+        word-break: break-all;
+      }
+      .diff-removed {
+        color: var(--red);
+      }
+      .diff-added {
+        color: var(--green);
+      }
+      .batch-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--surface);
+        border-top: 2px solid var(--border-active);
+        padding: 14px 24px 16px;
+        z-index: 50;
+      }
+      .batch-inner {
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+      .batch-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      .batch-head .title {
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .batch-list {
+        max-height: 120px;
+        overflow-y: auto;
+        font-size: 11px;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        padding: 6px 10px;
+      }
+      .queued-call {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 3px 0;
+        border-bottom: 1px dashed var(--border);
+      }
+      .queued-call:last-child {
+        border-bottom: none;
+      }
+      .batch-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+      .muted {
+        color: var(--text-muted);
+      }
+      .mini {
+        font-size: 10px;
+      }
+      .mono-small {
+        font-size: 11px;
+      }
+      .tag {
+        padding: 1px 6px;
+        font-size: 10px;
+        border: 1px solid var(--border);
+        background: var(--surface-3);
+        color: var(--text-dim);
+      }
+      details {
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        padding: 10px 14px;
+        margin-bottom: 10px;
+      }
+      details summary {
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      details[open] summary {
+        margin-bottom: 12px;
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 12px 0;
+      }
+      .option-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr auto;
+        gap: 6px;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+      .option-row input {
+        font-size: 11px;
+      }
+      .option-row .tag {
+        text-align: center;
+      }
+      .msgtype-block {
+        background: var(--surface-3);
+        border: 1px solid var(--border);
+        padding: 12px;
+        margin-bottom: 10px;
+      }
+      .msgtype-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 11px;
+      }
+      .empty {
+        color: var(--text-muted);
+        font-size: 11px;
+        padding: 6px 0;
+      }
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.72);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal-backdrop.show {
+        display: flex;
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 22px 24px 20px;
+        width: min(440px, 92vw);
+      }
+      .modal h3 {
+        font-size: 14px;
+        margin-bottom: 14px;
+      }
+      .connect-option {
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        padding: 12px 14px;
+        margin-bottom: 10px;
+      }
+      .connect-option .option-title {
+        font-size: 12px;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      .connect-option .option-sub {
+        font-size: 11px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+      .connect-option .option-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .modal-close {
+        float: right;
+        font-size: 11px;
+      }
+      .modal-info {
+        border: 1px dashed var(--border);
+        background: var(--surface-1);
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        font-size: 11px;
+        color: var(--text-muted);
+        line-height: 1.55;
+      }
+      .modal-info b { color: var(--text); }
+      .modal-info .mode-row { margin-top: 6px; }
+      .modal-info .mode-row:first-child { margin-top: 0; }
+
+      /* ===== Delta highlighting (edited vs live on-chain) ===== */
+      input.field-changed {
+        border-color: var(--yellow) !important;
+        background: var(--yellow-dim) !important;
+      }
+      .dvn-row.dvn-added input,
+      .option-row.row-added input {
+        border-color: var(--green) !important;
+        background: var(--green-dim) !important;
+      }
+      .dvn-row.dvn-changed input,
+      .option-row.row-changed input {
+        border-color: var(--yellow) !important;
+        background: var(--yellow-dim) !important;
+      }
+      .dvn-row.dvn-removed,
+      .option-row.row-removed {
+        opacity: 0.6;
+      }
+      .dvn-row.dvn-removed input,
+      .option-row.row-removed input {
+        border-color: var(--red) !important;
+        background: var(--red-dim) !important;
+        text-decoration: line-through;
+        color: var(--red);
+      }
+      .diff-summary {
+        font-size: 11px;
+        padding: 6px 10px;
+        border: 1px solid var(--border);
+        background: var(--surface-3);
+        margin-top: 6px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+      .diff-summary.none {
+        color: var(--text-muted);
+      }
+      .diff-summary .chg { color: var(--yellow); }
+      .diff-summary .add { color: var(--green); }
+      .diff-summary .rem { color: var(--red); }
+      .diff-summary code { background: var(--surface-2); padding: 0 4px; }
+      .dvn-input-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+      .dvn-input-wrap input {
+        flex: 1;
+        min-width: 0;
+      }
+      .dvn-name {
+        flex: 0 0 auto;
+        font-size: 10px;
+        color: var(--text-dim);
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+        background: var(--surface-2);
+        white-space: nowrap;
+      }
+      .dvn-name.unknown {
+        color: var(--text-muted);
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="header">
+        <div class="brand">
+          <div class="brand-mark">LZ</div>
+          <div>
+            <div class="brand-title">LayerZero OFT Safe Manager</div>
+            <div class="brand-sub">read on-chain OFT config, edit, propose as Gnosis Safe multisig tx</div>
+          </div>
+        </div>
+        <div class="wallet-area">
+          <span id="walletStatus" class="pill">disconnected</span>
+          <button id="connectBtn" onclick="onConnectClick()">Connect wallet</button>
+        </div>
+      </div>
+
+      <!-- Connect modal -->
+      <div id="connectModal" class="modal-backdrop" onclick="if(event.target===this)hideConnectModal()">
+        <div class="modal">
+          <button class="ghost mini modal-close" onclick="hideConnectModal()">close ×</button>
+          <h3>Connect wallet</h3>
+
+          <div class="modal-info">
+            Two supported modes (auto-detected at propose time):
+            <div class="mode-row">
+              <b>Owner EOA</b> — MetaMask, Rabby, hardware, or WC from a normal wallet.
+              Signs an EIP-712 <i>SafeTx</i> and posts one atomic MultiSend proposal to the
+              Safe Transaction Service. You'll paste the Safe address below in the header.
+            </div>
+            <div class="mode-row">
+              <b>Safe{Wallet} via WalletConnect</b> — connect the Safe itself (from
+              app.safe.global → WalletConnect as wallet). Each queued call is sent as its
+              own <code>eth_sendTransaction</code>, producing <b>one proposal per call</b>
+              (no atomic batching on this path). The Safe address input is ignored.
+            </div>
+          </div>
+
+          <div class="connect-option">
+            <div class="option-title">Browser wallet</div>
+            <div class="option-sub">MetaMask, Rabby, Frame, etc. (injected provider)</div>
+            <div class="option-actions">
+              <button id="optInjected" class="primary" onclick="connectInjected()">Connect injected</button>
+            </div>
+          </div>
+
+          <div class="connect-option">
+            <div class="option-title">WalletConnect</div>
+            <div class="option-sub">Scan a QR code from your mobile or hardware wallet app.</div>
+            <label>WalletConnect Project ID</label>
+            <input id="wcProjectId" placeholder="from cloud.walletconnect.com" spellcheck="false" />
+            <div class="option-actions" style="margin-top:8px">
+              <button class="primary" onclick="connectWalletConnect()">Connect WalletConnect</button>
+              <span id="wcHint" class="muted mini"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Context card -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Context</div>
+            <div class="card-sub">Pick the source chain + the peer chain whose config you want to edit</div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Source chain (where the Safe lives)</label>
+            <select id="srcNet" onchange="onSrcChange()"></select>
+          </div>
+          <div>
+            <label>Destination chain (peer)</label>
+            <select id="dstNet" onchange="onDstChange()"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Safe address (owner of the source OFT)</label>
+            <input id="safeAddr" placeholder="0x..." spellcheck="false" />
+          </div>
+          <div>
+            <label>Source OFT address (editable)</label>
+            <input id="srcOft" spellcheck="false" />
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Source LZ endpoint (editable)</label>
+            <input id="srcEndpoint" spellcheck="false" />
+          </div>
+          <div>
+            <label>Peer OFT address on destination (editable)</label>
+            <input id="dstOft" spellcheck="false" />
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="loadAllPanels()">Load on-chain state</button>
+          <button class="ghost" onclick="resetForm()">Reset to preset</button>
+          <button class="ghost" onclick="exportConfigJson()">Export JSON</button>
+          <button class="ghost" onclick="importConfigJson()">Import JSON</button>
+          <input type="file" id="importFile" accept=".json,application/json"
+                 style="display:none" onchange="handleImportFile(event)" />
+        </div>
+        <div style="margin-top: 12px" class="log" id="ctxLog"></div>
+      </div>
+
+      <!-- Panels container -->
+      <div id="panels" style="display: none">
+        <!-- 1. Libraries -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Send / Receive Libraries</div>
+              <div class="card-sub">endpoint.setSendLibrary / setReceiveLibrary · per destination eid</div>
+            </div>
+            <span id="libStatus" class="pill">unloaded</span>
+          </div>
+          <div class="row">
+            <div>
+              <label>Current send library (on-chain)</label>
+              <input id="libSendCurrent" disabled />
+            </div>
+            <div>
+              <label>New send library</label>
+              <input id="libSendNew" spellcheck="false" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Current receive library (on-chain)</label>
+              <input id="libRecvCurrent" disabled />
+            </div>
+            <div>
+              <label>New receive library</label>
+              <input id="libRecvNew" spellcheck="false" />
+            </div>
+          </div>
+          <div class="actions">
+            <button onclick="queueLibraries()">Queue library changes</button>
+            <span id="libDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 1b. OFT delegate -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">OFT Delegate (LayerZero config caller)</div>
+              <div class="card-sub">OFT.setDelegate(addr) · required before setConfig / setSendLibrary / setReceiveLibrary · gated by OFT.owner()</div>
+            </div>
+            <span id="delegateStatus" class="pill">unloaded</span>
+          </div>
+          <div class="row">
+            <div>
+              <label>Current delegate (endpoint.delegates(oft))</label>
+              <input id="delegateCurrent" disabled />
+            </div>
+            <div>
+              <label>New delegate (usually your Safe)</label>
+              <input id="delegateNew" spellcheck="false" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>OFT owner (must be the proposer)</label>
+              <input id="delegateOwner" disabled />
+            </div>
+            <div></div>
+          </div>
+          <div class="actions">
+            <button onclick="queueDelegate()">Queue delegate change</button>
+            <button class="ghost" onclick="fillDelegateFromSafe()">Use Safe address</button>
+            <span id="delegateDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 2. Executor config -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Executor Config (send library)</div>
+              <div class="card-sub">endpoint.setConfig(sendLib, [{eid, type=1, (maxMessageSize, executor)}])</div>
+            </div>
+            <span id="execStatus" class="pill">unloaded</span>
+          </div>
+          <div class="row">
+            <div>
+              <label>Max message size (bytes)</label>
+              <input id="execMaxSize" type="number" />
+            </div>
+            <div>
+              <label>Executor address</label>
+              <input id="execAddr" spellcheck="false" />
+            </div>
+          </div>
+          <div class="actions">
+            <button onclick="queueExecutor()">Queue executor change</button>
+            <span id="execDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 3. UlnConfig send -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">ULN Config (send library)</div>
+              <div class="card-sub">endpoint.setConfig(sendLib, [{eid, type=2, UlnConfig}]) · DVNs &amp; confirmations</div>
+            </div>
+            <span id="ulnSendStatus" class="pill">unloaded</span>
+          </div>
+          <div id="ulnSendForm"></div>
+          <div class="actions">
+            <button onclick="queueUln('send')">Queue ULN (send) change</button>
+            <span id="ulnSendDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 4. UlnConfig receive -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">ULN Config (receive library)</div>
+              <div class="card-sub">endpoint.setConfig(receiveLib, [{eid, type=2, UlnConfig}])</div>
+            </div>
+            <span id="ulnRecvStatus" class="pill">unloaded</span>
+          </div>
+          <div id="ulnRecvForm"></div>
+          <div class="actions">
+            <button onclick="queueUln('recv')">Queue ULN (receive) change</button>
+            <span id="ulnRecvDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 5. Peer -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Peer</div>
+              <div class="card-sub">OFTCore.setPeer(dstEid, bytes32(uint256(uint160(targetOft))))</div>
+            </div>
+            <span id="peerStatus" class="pill">unloaded</span>
+          </div>
+          <div class="row">
+            <div>
+              <label>Current peer (on-chain, bytes32)</label>
+              <input id="peerCurrent" disabled />
+            </div>
+            <div>
+              <label>New peer OFT (address; 0x0 to clear)</label>
+              <input id="peerNew" spellcheck="false" />
+            </div>
+          </div>
+          <div class="actions">
+            <button onclick="queuePeer()">Queue peer change</button>
+            <span id="peerDiff" class="muted mini"></span>
+          </div>
+        </div>
+
+        <!-- 6. Enforced options -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Enforced Options</div>
+              <div class="card-sub">OFTCore.setEnforcedOptions · per msgType · type-3 options</div>
+            </div>
+            <span id="eoStatus" class="pill">unloaded</span>
+          </div>
+          <div id="eoForm"></div>
+          <div class="actions">
+            <button onclick="queueEnforcedOptions()">Queue enforced-option changes</button>
+            <button class="ghost" onclick="resetEoDefaults()">Reset to WireOFT defaults</button>
+            <span id="eoDiff" class="muted mini"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Batch buffer -->
+    <div class="batch-bar">
+      <div class="batch-inner">
+        <div class="batch-head">
+          <div>
+            <span class="title">Batch buffer</span>
+            <span id="batchCount" class="tag">0 calls</span>
+          </div>
+          <div>
+            <span id="batchHint" class="muted mini">Queue changes above, then propose as one Safe multisig tx.</span>
+          </div>
+        </div>
+        <div id="batchList" class="batch-list">
+          <div class="empty">No calls queued.</div>
+        </div>
+        <div class="batch-actions">
+          <button class="ghost" onclick="queueAll()">Queue all changes</button>
+          <button class="danger ghost" onclick="clearBatch()">Clear</button>
+          <button class="ghost" onclick="downloadTxBuilderJson()">Download Safe TX Builder JSON</button>
+          <button class="primary" id="proposeBtn" onclick="proposeToSafe()">Propose to Safe</button>
+        </div>
+        <div id="proposeLog" class="log" style="margin-top: 10px; display: none"></div>
+      </div>
+    </div>
+
+    <!-- WalletConnect loaded as ES module -->
+    <script type="module">
+      try {
+        const { EthereumProvider } = await import(
+          "https://esm.sh/@walletconnect/ethereum-provider@2.17.3"
+        );
+        window._WCProvider = EthereumProvider;
+        window._wcReady = true;
+        console.log("[WC] EthereumProvider loaded via esm.sh");
+      } catch (e) {
+        console.warn("[WC] esm.sh failed, trying skypack…", e);
+        try {
+          const { EthereumProvider } = await import(
+            "https://cdn.skypack.dev/@walletconnect/ethereum-provider@2.17.3"
+          );
+          window._WCProvider = EthereumProvider;
+          window._wcReady = true;
+          console.log("[WC] EthereumProvider loaded via skypack");
+        } catch (e2) {
+          console.warn("[WC] All CDN sources failed:", e2);
+          window._wcReady = false;
+        }
+      }
+    </script>
+
+    <script>
+      // ---------- constants ----------
+      const ULN_CONFIG_TYPE = 2;
+      const EXECUTOR_CONFIG_TYPE = 1;
+      const DEFAULT_OPTIONAL_DVN_COUNT = 255; // sentinel used in WireOFT.s.sol
+      const ORIGIN = "LayerZero OFT Safe Manager";
+
+      const IEndpoint = new ethers.Interface([
+        "function getSendLibrary(address oapp, uint32 eid) view returns (address)",
+        "function getReceiveLibrary(address oapp, uint32 eid) view returns (address, bool)",
+        "function getConfig(address oapp, address lib, uint32 eid, uint32 configType) view returns (bytes)",
+        "function delegates(address oapp) view returns (address)",
+        "function setSendLibrary(address oapp, uint32 eid, address newLib)",
+        "function setReceiveLibrary(address oapp, uint32 eid, address newLib, uint256 gracePeriod)",
+        "function setConfig(address oapp, address lib, tuple(uint32 eid, uint32 configType, bytes config)[] params)",
+      ]);
+      const IOFT = new ethers.Interface([
+        "function owner() view returns (address)",
+        "function peers(uint32 eid) view returns (bytes32)",
+        "function enforcedOptions(uint32 eid, uint16 msgType) view returns (bytes)",
+        "function setDelegate(address delegate)",
+        "function setPeer(uint32 eid, bytes32 peer)",
+        "function setEnforcedOptions(tuple(uint32 eid, uint16 msgType, bytes options)[] options)",
+      ]);
+      const IMultiSend = new ethers.Interface([
+        "function multiSend(bytes transactions)",
+      ]);
+
+      const coder = ethers.AbiCoder.defaultAbiCoder();
+
+      // ---------- state ----------
+      let signer = null;
+      let userAddress = null;
+      let walletType = null;
+      let wcProviderInstance = null;
+      let currentState = null; // reads cache
+      const batch = []; // queued calls { label, to, value, data, group }
+
+      // ---------- helpers ----------
+      function net(name) { return window.NETWORKS[name]; }
+      function srcKey() { return document.getElementById("srcNet").value; }
+      function dstKey() { return document.getElementById("dstNet").value; }
+      function srcNet() { return net(srcKey()); }
+      function dstNet() { return net(dstKey()); }
+      function logTo(id, msg, kind = "info") {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const cls = ["info", "ok", "warn", "err"].includes(kind) ? kind : "info";
+        const icon = { info: "·", ok: "✓", warn: "⚠", err: "✗" }[cls];
+        const now = new Date();
+        const ts = [now.getHours(), now.getMinutes(), now.getSeconds()]
+          .map((n) => String(n).padStart(2, "0")).join(":");
+        const line = document.createElement("div");
+        line.className = "log-line " + cls;
+        const tsEl = document.createElement("span"); tsEl.className = "log-ts"; tsEl.textContent = ts;
+        const icEl = document.createElement("span"); icEl.className = "log-icon"; icEl.textContent = icon;
+        const msgEl = document.createElement("span"); msgEl.className = "log-msg"; msgEl.textContent = msg;
+        line.appendChild(tsEl); line.appendChild(icEl); line.appendChild(msgEl);
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+      }
+      function ctxLog(msg, kind) { logTo("ctxLog", msg, kind); }
+      function shorten(a) { return a ? a.slice(0, 6) + "…" + a.slice(-4) : ""; }
+      function bnToStr(v) { return typeof v === "bigint" ? v.toString() : String(v); }
+      function addrEq(a, b) {
+        if (!a || !b) return false;
+        try { return ethers.getAddress(a) === ethers.getAddress(b); } catch { return false; }
+      }
+      function bytesEq(a, b) { return (a || "0x").toLowerCase() === (b || "0x").toLowerCase(); }
+
+      async function rpcCall(rpcUrl, method, params) {
+        const res = await fetch(rpcUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        });
+        const j = await res.json();
+        if (j.error) throw new Error(j.error.message || "RPC error");
+        return j.result;
+      }
+      async function ethCall(rpcUrl, to, data) {
+        return rpcCall(rpcUrl, "eth_call", [{ to, data }, "latest"]);
+      }
+
+      // ---------- UlnConfig codec ----------
+      function decodeUln(bytes) {
+        if (!bytes || bytes === "0x") {
+          return { confirmations: 0n, requiredDVNCount: 0, optionalDVNCount: 0,
+                   optionalDVNThreshold: 0, requiredDVNs: [], optionalDVNs: [] };
+        }
+        const [r] = coder.decode(
+          ["tuple(uint64 confirmations, uint8 requiredDVNCount, uint8 optionalDVNCount, uint8 optionalDVNThreshold, address[] requiredDVNs, address[] optionalDVNs)"],
+          bytes,
+        );
+        return {
+          confirmations: r.confirmations,
+          requiredDVNCount: Number(r.requiredDVNCount),
+          optionalDVNCount: Number(r.optionalDVNCount),
+          optionalDVNThreshold: Number(r.optionalDVNThreshold),
+          requiredDVNs: [...r.requiredDVNs],
+          optionalDVNs: [...r.optionalDVNs],
+        };
+      }
+      function encodeUln(u) {
+        return coder.encode(
+          ["tuple(uint64 confirmations, uint8 requiredDVNCount, uint8 optionalDVNCount, uint8 optionalDVNThreshold, address[] requiredDVNs, address[] optionalDVNs)"],
+          [{
+            confirmations: BigInt(u.confirmations),
+            requiredDVNCount: u.requiredDVNCount,
+            optionalDVNCount: u.optionalDVNCount,
+            optionalDVNThreshold: u.optionalDVNThreshold,
+            requiredDVNs: u.requiredDVNs.map((a) => ethers.getAddress(a)),
+            optionalDVNs: u.optionalDVNs.map((a) => ethers.getAddress(a)),
+          }],
+        );
+      }
+
+      // ---------- ExecutorConfig codec ----------
+      function decodeExec(bytes) {
+        if (!bytes || bytes === "0x") {
+          return { maxMessageSize: 0, executor: ethers.ZeroAddress };
+        }
+        const [r] = coder.decode(
+          ["tuple(uint32 maxMessageSize, address executor)"],
+          bytes,
+        );
+        return { maxMessageSize: Number(r.maxMessageSize), executor: r.executor };
+      }
+      function encodeExec(e) {
+        return coder.encode(
+          ["tuple(uint32 maxMessageSize, address executor)"],
+          [{ maxMessageSize: Number(e.maxMessageSize), executor: ethers.getAddress(e.executor) }],
+        );
+      }
+
+      // ---------- Options type-3 codec ----------
+      // item shapes:
+      //   { kind: "executorLzReceive", gas: bigint, value: bigint }
+      //   { kind: "executorLzCompose", index: number, gas: bigint, value: bigint }
+      //   { kind: "raw", workerId: number, type: number, body: hex }
+      function encodeOptions(items) {
+        let hex = "0x0003";
+        for (const it of items) {
+          let workerId, type, body;
+          if (it.kind === "executorLzReceive") {
+            workerId = 1; type = 1;
+            body = it.value > 0n
+              ? ethers.solidityPacked(["uint128", "uint128"], [it.gas, it.value])
+              : ethers.solidityPacked(["uint128"], [it.gas]);
+          } else if (it.kind === "executorLzCompose") {
+            workerId = 1; type = 3;
+            body = it.value > 0n
+              ? ethers.solidityPacked(["uint16", "uint128", "uint128"], [it.index, it.gas, it.value])
+              : ethers.solidityPacked(["uint16", "uint128"], [it.index, it.gas]);
+          } else if (it.kind === "raw") {
+            workerId = it.workerId; type = it.type; body = it.body;
+          } else {
+            throw new Error("Unknown option kind: " + it.kind);
+          }
+          const bodyBytes = ethers.getBytes(body);
+          const optionLen = bodyBytes.length + 1; // +1 for option type byte
+          const frag = ethers.solidityPacked(
+            ["uint8", "uint16", "uint8", "bytes"],
+            [workerId, optionLen, type, body],
+          );
+          hex = ethers.concat([hex, frag]);
+        }
+        return ethers.hexlify(hex);
+      }
+
+      function bigFromBytes(u8) {
+        let hex = "0x";
+        for (const b of u8) hex += b.toString(16).padStart(2, "0");
+        return hex === "0x" ? 0n : BigInt(hex);
+      }
+      function decodeOptions(bytes) {
+        if (!bytes || bytes === "0x") return [];
+        const buf = ethers.getBytes(bytes);
+        if (buf.length < 2) return [];
+        const optType = (buf[0] << 8) | buf[1];
+        if (optType !== 3) {
+          return [{ kind: "raw", workerId: -1, type: -1, body: ethers.hexlify(buf) }];
+        }
+        const items = [];
+        let p = 2;
+        while (p < buf.length) {
+          const workerId = buf[p]; p += 1;
+          if (p + 2 > buf.length) break;
+          const optionLen = (buf[p] << 8) | buf[p + 1]; p += 2;
+          if (p + optionLen > buf.length) break;
+          const type = buf[p]; p += 1;
+          const bodyLen = optionLen - 1;
+          const body = buf.slice(p, p + bodyLen); p += bodyLen;
+          if (workerId === 1 && type === 1) {
+            const gas = bigFromBytes(body.slice(0, 16));
+            const value = body.length >= 32 ? bigFromBytes(body.slice(16, 32)) : 0n;
+            items.push({ kind: "executorLzReceive", gas, value });
+          } else if (workerId === 1 && type === 3) {
+            const index = (body[0] << 8) | body[1];
+            const gas = bigFromBytes(body.slice(2, 18));
+            const value = body.length >= 34 ? bigFromBytes(body.slice(18, 34)) : 0n;
+            items.push({ kind: "executorLzCompose", index, gas, value });
+          } else {
+            items.push({ kind: "raw", workerId, type, body: ethers.hexlify(body) });
+          }
+        }
+        return items;
+      }
+
+      // ---------- UI population ----------
+      function populateNetworkSelectors() {
+        const src = document.getElementById("srcNet");
+        const dst = document.getElementById("dstNet");
+        src.innerHTML = ""; dst.innerHTML = "";
+        for (const k of window.NETWORK_KEYS) {
+          const n = window.NETWORKS[k];
+          src.appendChild(new Option(n.label + " · eid " + n.eid, k));
+          dst.appendChild(new Option(n.label + " · eid " + n.eid, k));
+        }
+        src.value = "ethereum";
+        dst.value = "base";
+        onSrcChange();
+        onDstChange();
+      }
+
+      let autoLoadReady = false;
+      let autoLoadTimer = null;
+      function scheduleAutoLoad() {
+        if (!autoLoadReady) return;
+        if (autoLoadTimer) clearTimeout(autoLoadTimer);
+        autoLoadTimer = setTimeout(() => {
+          autoLoadTimer = null;
+          loadAllPanels().catch((e) => console.error(e));
+        }, 150);
+      }
+
+      function onSrcChange() {
+        const s = srcNet();
+        document.getElementById("srcOft").value = "";
+        document.getElementById("srcEndpoint").value = s.lzEndpoint;
+        if (srcKey() === dstKey()) {
+          const alt = window.NETWORK_KEYS.find((k) => k !== srcKey());
+          if (alt) { document.getElementById("dstNet").value = alt; onDstChange(); }
+        }
+        renderLibraryDefaults();
+        scheduleAutoLoad();
+      }
+      function onDstChange() {
+        document.getElementById("dstOft").value = "";
+        if (srcKey() === dstKey()) {
+          const alt = window.NETWORK_KEYS.find((k) => k !== dstKey());
+          if (alt) { document.getElementById("srcNet").value = alt; onSrcChange(); }
+        }
+        renderLibraryDefaults();
+        scheduleAutoLoad();
+      }
+      function renderLibraryDefaults() {
+        const s = srcNet();
+        document.getElementById("libSendNew").value = s.sendLib;
+        document.getElementById("libRecvNew").value = s.receiveLib;
+      }
+      function resetForm() {
+        onSrcChange();
+        onDstChange();
+        document.getElementById("panels").style.display = "none";
+        currentState = null;
+        ctxLog("Reset to preset values", "info");
+      }
+
+      // ---------- wallet ----------
+      function setConnected(addr, type) {
+        userAddress = addr;
+        walletType = type;
+        const el = document.getElementById("walletStatus");
+        el.textContent = shorten(userAddress) + " · " + type;
+        el.classList.add("ok");
+        document.getElementById("connectBtn").textContent = "Disconnect";
+        hideConnectModal();
+        ctxLog(`Connected [${type}]: ${addr}`, "ok");
+      }
+
+      function doDisconnect() {
+        if (wcProviderInstance) {
+          try { wcProviderInstance.disconnect(); } catch (e) {}
+          wcProviderInstance = null;
+        }
+        signer = null;
+        userAddress = null;
+        walletType = null;
+        try {
+          localStorage.removeItem("lz-wallet-type");
+          localStorage.removeItem("lz-wc-project-id");
+        } catch(e) {}
+        const el = document.getElementById("walletStatus");
+        el.textContent = "disconnected";
+        el.classList.remove("ok");
+        document.getElementById("connectBtn").textContent = "Connect wallet";
+        ctxLog("Disconnected", "info");
+      }
+
+      window.onConnectClick = function () {
+        if (userAddress) { doDisconnect(); return; }
+        showConnectModal();
+      };
+
+      function showConnectModal() {
+        const inj = document.getElementById("optInjected");
+        if (inj) inj.disabled = !window.ethereum;
+        // Pre-fill project ID from env injection or prior session
+        const wcInput = document.getElementById("wcProjectId");
+        let cached = "";
+        try { cached = localStorage.getItem("lz-wc-project-id") || ""; } catch(e) {}
+        wcInput.value = wcInput.value || cached || (window.__WC_PROJECT_ID__ || "");
+        const hint = document.getElementById("wcHint");
+        hint.textContent = window._wcReady === false
+          ? "SDK failed to load; injected only"
+          : (window._wcReady ? "SDK ready ✓" : "SDK loading…");
+        document.getElementById("connectModal").classList.add("show");
+      }
+      window.hideConnectModal = function () {
+        document.getElementById("connectModal").classList.remove("show");
+      };
+
+      async function connectInjected() {
+        if (!window.ethereum) { alert("No injected wallet. Install MetaMask or Rabby."); return; }
+        try {
+          const accts = await window.ethereum.request({ method: "eth_requestAccounts" });
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          signer = await provider.getSigner();
+          setConnected(await signer.getAddress(), "injected");
+          try { localStorage.setItem("lz-wallet-type", "injected"); } catch(e) {}
+        } catch (e) {
+          ctxLog("Injected connect error: " + (e.message || e), "err");
+        }
+      }
+
+      async function connectWalletConnect() {
+        const projectId = document.getElementById("wcProjectId").value.trim();
+        if (!projectId) {
+          alert("Enter a WalletConnect Project ID.\nGet one free at cloud.walletconnect.com");
+          return;
+        }
+        if (!window._wcReady) {
+          ctxLog("WalletConnect SDK loading…", "info");
+          await new Promise((r) => {
+            const t = setInterval(() => {
+              if (window._wcReady !== undefined) { clearInterval(t); r(); }
+            }, 300);
+            setTimeout(() => { clearInterval(t); r(); }, 12000);
+          });
+        }
+        if (!window._WCProvider) {
+          alert("WalletConnect SDK failed to load. Check console; fall back to injected wallet.");
+          return;
+        }
+        try {
+          ctxLog("Initializing WalletConnect…", "info");
+          const s = srcNet();
+          wcProviderInstance = await window._WCProvider.init({
+            projectId,
+            chains: [s.chainId],
+            showQrModal: true,
+            optionalChains: window.NETWORK_KEYS
+              .map((k) => window.NETWORKS[k].chainId)
+              .filter((id) => id !== s.chainId),
+            metadata: {
+              name: "LayerZero OFT Safe Manager",
+              description: "Edit LayerZero OFT config and propose via Gnosis Safe multisig",
+              url: window.location.href,
+              icons: [],
+            },
+          });
+          hideConnectModal();
+          ctxLog("Scan the QR code with your wallet…", "info");
+          await wcProviderInstance.connect();
+          const ethersProvider = new ethers.BrowserProvider(wcProviderInstance);
+          signer = await ethersProvider.getSigner();
+          setConnected(await signer.getAddress(), "walletconnect");
+          try {
+            localStorage.setItem("lz-wallet-type", "walletconnect");
+            localStorage.setItem("lz-wc-project-id", projectId);
+          } catch(e) {}
+          wcProviderInstance.on("disconnect", () => {
+            ctxLog("WalletConnect session ended", "info");
+            doDisconnect();
+          });
+          wcProviderInstance.on("accountsChanged", (accts) => {
+            if (!accts || accts.length === 0) doDisconnect();
+          });
+        } catch (e) {
+          ctxLog("WalletConnect error: " + (e.message || e), "err");
+          wcProviderInstance = null;
+          showConnectModal();
+        }
+      }
+      window.connectInjected = connectInjected;
+      window.connectWalletConnect = connectWalletConnect;
+
+      async function ensureChain(chainId) {
+        // WalletConnect path: request switch via the WC provider
+        if (walletType === "walletconnect" && wcProviderInstance) {
+          try {
+            const current = await wcProviderInstance.request({ method: "eth_chainId" });
+            if (parseInt(current, 16) === chainId) return;
+            await wcProviderInstance.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: "0x" + chainId.toString(16) }],
+            });
+            return;
+          } catch (e) {
+            throw new Error("Switch to chain " + chainId + " in your wallet: " + (e.message || e));
+          }
+        }
+        // Injected path
+        if (!window.ethereum) throw new Error("No injected wallet");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const { chainId: current } = await provider.getNetwork();
+        if (Number(current) === chainId) return;
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x" + chainId.toString(16) }],
+          });
+        } catch (e) {
+          throw new Error("Wallet chain is " + current + ", expected " + chainId +
+            ". Please switch networks in your wallet.");
+        }
+      }
+
+      // ---------- on-chain reads ----------
+      async function loadAllPanels() {
+        try {
+          const s = srcNet();
+          const d = dstNet();
+          const rawOft = (document.getElementById("srcOft").value || "").trim();
+          const rawEndpoint = (document.getElementById("srcEndpoint").value || "").trim();
+          if (!rawOft || !rawEndpoint) {
+            ctxLog("Paste your OFT and Endpoint addresses to load on-chain state.", "info");
+            return;
+          }
+          const oft = ethers.getAddress(rawOft);
+          const endpoint = ethers.getAddress(rawEndpoint);
+          const dstEid = d.eid;
+
+          ctxLog(`Loading ${s.label} → ${d.label} (eid=${dstEid})…`, "info");
+
+          // send/receive libs
+          const sendLibCalldata = IEndpoint.encodeFunctionData("getSendLibrary", [oft, dstEid]);
+          const recvLibCalldata = IEndpoint.encodeFunctionData("getReceiveLibrary", [oft, dstEid]);
+          const [sendLibRaw, recvLibRaw] = await Promise.all([
+            ethCall(s.rpcUrl, endpoint, sendLibCalldata),
+            ethCall(s.rpcUrl, endpoint, recvLibCalldata),
+          ]);
+          const sendLib = IEndpoint.decodeFunctionResult("getSendLibrary", sendLibRaw)[0];
+          const recvLib = IEndpoint.decodeFunctionResult("getReceiveLibrary", recvLibRaw)[0];
+
+          // uln configs + executor config + peer + enforced options + delegate + owner (parallel)
+          const ulnSendCall  = IEndpoint.encodeFunctionData("getConfig", [oft, sendLib, dstEid, ULN_CONFIG_TYPE]);
+          const ulnRecvCall  = IEndpoint.encodeFunctionData("getConfig", [oft, recvLib, dstEid, ULN_CONFIG_TYPE]);
+          const execCall     = IEndpoint.encodeFunctionData("getConfig", [oft, sendLib, dstEid, EXECUTOR_CONFIG_TYPE]);
+          const peerCall     = IOFT.encodeFunctionData("peers", [dstEid]);
+          const eo1Call      = IOFT.encodeFunctionData("enforcedOptions", [dstEid, 1]);
+          const eo2Call      = IOFT.encodeFunctionData("enforcedOptions", [dstEid, 2]);
+          const delegateCall = IEndpoint.encodeFunctionData("delegates", [oft]);
+          const ownerCall    = IOFT.encodeFunctionData("owner", []);
+
+          const [ulnSendRaw, ulnRecvRaw, execRaw, peerRaw, eo1Raw, eo2Raw, delegateRaw, ownerRaw] = await Promise.all([
+            ethCall(s.rpcUrl, endpoint, ulnSendCall),
+            ethCall(s.rpcUrl, endpoint, ulnRecvCall),
+            ethCall(s.rpcUrl, endpoint, execCall),
+            ethCall(s.rpcUrl, oft, peerCall),
+            ethCall(s.rpcUrl, oft, eo1Call),
+            ethCall(s.rpcUrl, oft, eo2Call),
+            ethCall(s.rpcUrl, endpoint, delegateCall),
+            ethCall(s.rpcUrl, oft, ownerCall),
+          ]);
+
+          const ulnSendBytes = IEndpoint.decodeFunctionResult("getConfig", ulnSendRaw)[0];
+          const ulnRecvBytes = IEndpoint.decodeFunctionResult("getConfig", ulnRecvRaw)[0];
+          const execBytes    = IEndpoint.decodeFunctionResult("getConfig", execRaw)[0];
+          const peerB32      = IOFT.decodeFunctionResult("peers", peerRaw)[0];
+          const eo1Bytes     = IOFT.decodeFunctionResult("enforcedOptions", eo1Raw)[0];
+          const eo2Bytes     = IOFT.decodeFunctionResult("enforcedOptions", eo2Raw)[0];
+          const delegate     = IEndpoint.decodeFunctionResult("delegates", delegateRaw)[0];
+          const ownerAddr    = IOFT.decodeFunctionResult("owner", ownerRaw)[0];
+
+          currentState = {
+            src: s, dst: d, oft, endpoint, dstEid,
+            sendLib, recvLib,
+            uln: { send: decodeUln(ulnSendBytes), recv: decodeUln(ulnRecvBytes),
+                   sendBytes: ulnSendBytes, recvBytes: ulnRecvBytes },
+            exec: { ...decodeExec(execBytes), bytes: execBytes },
+            peer: peerB32,
+            eo:  { 1: decodeOptions(eo1Bytes), 2: decodeOptions(eo2Bytes),
+                   b1: eo1Bytes, b2: eo2Bytes },
+            delegate, owner: ownerAddr,
+          };
+
+          document.getElementById("panels").style.display = "block";
+          renderAllPanels();
+          ctxLog("Loaded on-chain state ✓", "ok");
+        } catch (e) {
+          console.error(e);
+          ctxLog("Load failed: " + e.message, "err");
+        }
+      }
+
+      function renderAllPanels() {
+        renderLibrariesPanel();
+        renderDelegatePanel();
+        renderExecutorPanel();
+        renderUlnPanel("send");
+        renderUlnPanel("recv");
+        renderPeerPanel();
+        renderEoPanel();
+        updateBatchUI();
+      }
+
+      // ---- Delegate panel ----
+      function renderDelegatePanel() {
+        document.getElementById("delegateCurrent").value = currentState.delegate;
+        document.getElementById("delegateOwner").value = currentState.owner;
+        const tgt = document.getElementById("delegateNew");
+        // default new delegate to the entered Safe address, else connected wallet, else current
+        const safeInput = (document.getElementById("safeAddr").value || "").trim();
+        let def = "";
+        try { def = safeInput ? ethers.getAddress(safeInput) : (userAddress || currentState.delegate); }
+        catch { def = userAddress || currentState.delegate; }
+        tgt.value = tgt.value || def;
+        document.getElementById("delegateStatus").textContent = "loaded";
+        document.getElementById("delegateStatus").className = "pill ok";
+        const ownerEl = document.getElementById("delegateOwner");
+        ownerEl.classList.remove("field-changed");
+        if (safeInput) {
+          try {
+            if (!addrEq(ethers.getAddress(safeInput), currentState.owner)) {
+              ownerEl.classList.add("field-changed");
+            }
+          } catch {}
+        }
+        tgt.oninput = updateDelegateDiff;
+        updateDelegateDiff();
+      }
+      function updateDelegateDiff() {
+        const el = document.getElementById("delegateNew");
+        let newAddr = "(invalid)";
+        try { newAddr = ethers.getAddress((el.value || "").trim()); } catch {}
+        const cur = currentState.delegate;
+        const same = newAddr !== "(invalid)" && addrEq(newAddr, cur);
+        el.classList.toggle("field-changed", !same && newAddr !== "(invalid)");
+        const lines = same ? [] : [
+          `<span class="chg">delegate</span>  <code>${shorten(cur)}</code> → <code>${newAddr === "(invalid)" ? newAddr : shorten(newAddr)}</code>`,
+        ];
+        renderDiffSummary("delegateDiff", lines);
+      }
+      window.fillDelegateFromSafe = function () {
+        const safe = (document.getElementById("safeAddr").value || "").trim();
+        if (!safe) { ctxLog("Paste a Safe address in the header first.", "err"); return; }
+        try {
+          document.getElementById("delegateNew").value = ethers.getAddress(safe);
+          updateDelegateDiff();
+        } catch (e) { ctxLog("Safe address invalid: " + e.message, "err"); }
+      };
+      window.queueDelegate = function () {
+        if (!currentState) { ctxLog("Load on-chain state first.", "err"); return; }
+        const el = document.getElementById("delegateNew");
+        let target;
+        try { target = ethers.getAddress((el.value || "").trim()); }
+        catch { ctxLog("Delegate address invalid.", "err"); return; }
+        if (addrEq(target, currentState.delegate)) { ctxLog("Delegate: no change to queue", "info"); return; }
+        const data = IOFT.encodeFunctionData("setDelegate", [target]);
+        addCall(`setDelegate(${shorten(target)}) — required before setConfig/setLibrary`,
+                currentState.oft, data, "delegate");
+      };
+
+      // ---- Libraries panel ----
+      function renderLibrariesPanel() {
+        document.getElementById("libSendCurrent").value = currentState.sendLib;
+        document.getElementById("libRecvCurrent").value = currentState.recvLib;
+        document.getElementById("libSendNew").value = currentState.src.sendLib;
+        document.getElementById("libRecvNew").value = currentState.src.receiveLib;
+        document.getElementById("libStatus").textContent = "loaded";
+        document.getElementById("libStatus").className = "pill ok";
+        updateLibDiff();
+      }
+      function updateLibDiff() {
+        const sendInput = document.getElementById("libSendNew");
+        const recvInput = document.getElementById("libRecvNew");
+        const sendNew = sendInput.value;
+        const recvNew = recvInput.value;
+        const sendSame = addrEq(sendNew, currentState.sendLib);
+        const recvSame = addrEq(recvNew, currentState.recvLib);
+        sendInput.classList.toggle("field-changed", !sendSame);
+        recvInput.classList.toggle("field-changed", !recvSame);
+        const lines = [];
+        if (!sendSame) lines.push(`<span class="chg">send lib</span>  <code>${shorten(currentState.sendLib)}</code> → <code>${shorten(sendNew)}</code>`);
+        if (!recvSame) lines.push(`<span class="chg">recv lib</span>  <code>${shorten(currentState.recvLib)}</code> → <code>${shorten(recvNew)}</code>`);
+        renderDiffSummary("libDiff", lines);
+      }
+      function renderDiffSummary(id, lines) {
+        const el = document.getElementById(id);
+        if (!lines || lines.length === 0) {
+          el.innerHTML = "no change";
+          el.className = "diff-summary none";
+        } else {
+          el.innerHTML = lines.join("<br>");
+          el.className = "diff-summary";
+        }
+      }
+      document.addEventListener("input", (e) => {
+        if (!currentState) return;
+        if (e.target.id === "libSendNew" || e.target.id === "libRecvNew") updateLibDiff();
+        if (e.target.id === "execMaxSize" || e.target.id === "execAddr") updateExecDiff();
+        if (e.target.id === "peerNew") updatePeerDiff();
+      });
+
+      // ---- Executor panel ----
+      function renderExecutorPanel() {
+        document.getElementById("execMaxSize").value = String(currentState.exec.maxMessageSize);
+        document.getElementById("execAddr").value = currentState.exec.executor;
+        document.getElementById("execStatus").textContent = "loaded";
+        document.getElementById("execStatus").className = "pill ok";
+        updateExecDiff();
+      }
+      function updateExecDiff() {
+        const maxInput = document.getElementById("execMaxSize");
+        const addrInput = document.getElementById("execAddr");
+        const max = Number(maxInput.value || 0);
+        const addr = addrInput.value.trim();
+        const maxSame = max === currentState.exec.maxMessageSize;
+        const addrSame = addrEq(addr, currentState.exec.executor);
+        maxInput.classList.toggle("field-changed", !maxSame);
+        addrInput.classList.toggle("field-changed", !addrSame);
+        const lines = [];
+        if (!maxSame) lines.push(`<span class="chg">maxMessageSize</span>  <code>${currentState.exec.maxMessageSize}</code> → <code>${max}</code>`);
+        if (!addrSame) lines.push(`<span class="chg">executor</span>  <code>${shorten(currentState.exec.executor)}</code> → <code>${shorten(addr)}</code>`);
+        renderDiffSummary("execDiff", lines);
+      }
+
+      // ---- ULN panel ----
+      // per-side form state (send/recv)
+      const ulnState = { send: null, recv: null };
+      function renderUlnPanel(side) {
+        const formId = side === "send" ? "ulnSendForm" : "ulnRecvForm";
+        const statusId = side === "send" ? "ulnSendStatus" : "ulnRecvStatus";
+        const src = currentState.uln[side];
+        ulnState[side] = JSON.parse(JSON.stringify({
+          ...src,
+          confirmations: src.confirmations.toString(),
+        }));
+        document.getElementById(statusId).textContent = "loaded";
+        document.getElementById(statusId).className = "pill ok";
+        rebuildUlnForm(side);
+        updateUlnDiff(side);
+      }
+      function rebuildUlnForm(side) {
+        const formId = side === "send" ? "ulnSendForm" : "ulnRecvForm";
+        const el = document.getElementById(formId);
+        const u = ulnState[side];
+        const cur = currentState.uln[side];
+        const curReqSet = new Set(cur.requiredDVNs.map((a) => a.toLowerCase()));
+        const curOptSet = new Set(cur.optionalDVNs.map((a) => a.toLowerCase()));
+        const editReqSet = new Set(u.requiredDVNs.map((a) => (a || "").toLowerCase()));
+        const editOptSet = new Set(u.optionalDVNs.map((a) => (a || "").toLowerCase()));
+
+        const confChanged = String(u.confirmations) !== cur.confirmations.toString();
+        const threshChanged = Number(u.optionalDVNThreshold) !== Number(cur.optionalDVNThreshold);
+
+        const useDefaultOptional = u.optionalDVNCount === DEFAULT_OPTIONAL_DVN_COUNT;
+
+        const dvnRowClass = (addr, kind) => {
+          const curSet = kind === "req" ? curReqSet : curOptSet;
+          return curSet.has((addr || "").toLowerCase()) ? "" : " dvn-added";
+        };
+        const nameTag = (addr) => {
+          const n = dvnName(addr);
+          return n
+            ? `<span class="dvn-name" title="${addr}">${n}</span>`
+            : `<span class="dvn-name unknown" title="${addr}">unknown</span>`;
+        };
+        const removedRow = (addr, kind) => `
+          <div class="dvn-row dvn-removed" title="removed — will be cleared on propose">
+            <div class="dvn-input-wrap">
+              <input value="${addr}" disabled />
+              ${nameTag(addr)}
+            </div>
+            <span class="mini muted">−</span>
+            <span class="mini muted">removed</span>
+          </div>`;
+
+        const reqRows = u.requiredDVNs.map((addr, i) => `
+          <div class="dvn-row${dvnRowClass(addr, "req")}">
+            <div class="dvn-input-wrap">
+              <input data-side="${side}" data-kind="req" data-idx="${i}" value="${addr}" oninput="ulnUpdateDvn(event)" />
+              ${nameTag(addr)}
+            </div>
+            <button class="ghost mini" onclick="ulnMoveDvn('${side}','req',${i},-1)">↑</button>
+            <button class="ghost mini danger" onclick="ulnRemoveDvn('${side}','req',${i})">×</button>
+          </div>`).join("");
+        const reqRemoved = cur.requiredDVNs
+          .filter((a) => !editReqSet.has(a.toLowerCase()))
+          .map((a) => removedRow(a, "req")).join("");
+
+        const optRows = u.optionalDVNs.map((addr, i) => `
+          <div class="dvn-row${dvnRowClass(addr, "opt")}">
+            <div class="dvn-input-wrap">
+              <input data-side="${side}" data-kind="opt" data-idx="${i}" value="${addr}" oninput="ulnUpdateDvn(event)" />
+              ${nameTag(addr)}
+            </div>
+            <button class="ghost mini" onclick="ulnMoveDvn('${side}','opt',${i},-1)">↑</button>
+            <button class="ghost mini danger" onclick="ulnRemoveDvn('${side}','opt',${i})">×</button>
+          </div>`).join("");
+        const optRemoved = (useDefaultOptional ? [] : cur.optionalDVNs
+          .filter((a) => !editOptSet.has(a.toLowerCase())))
+          .map((a) => removedRow(a, "opt")).join("");
+
+        el.innerHTML = `
+          <div class="row three">
+            <div>
+              <label>Confirmations (uint64)${confChanged ? ` <span class="mini chg-label" style="color:var(--yellow)">Δ was ${cur.confirmations.toString()}</span>` : ""}</label>
+              <input class="${confChanged ? "field-changed" : ""}" value="${u.confirmations}" oninput="ulnScalar('${side}','confirmations',this.value)" />
+            </div>
+            <div>
+              <label>Optional DVN threshold${threshChanged ? ` <span class="mini" style="color:var(--yellow)">Δ was ${cur.optionalDVNThreshold}</span>` : ""}</label>
+              <input class="${threshChanged ? "field-changed" : ""}" value="${u.optionalDVNThreshold}" oninput="ulnScalar('${side}','optionalDVNThreshold',Number(this.value))" />
+            </div>
+            <div>
+              <label>Use protocol default optional DVNs</label>
+              <label style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                <input type="checkbox" ${useDefaultOptional ? "checked" : ""}
+                  onchange="ulnToggleDefaultOptional('${side}', this.checked)" style="width:auto" />
+                <span class="mono-small muted">optionalDVNCount=255 sentinel</span>
+              </label>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div>
+            <label>Required DVNs (${u.requiredDVNs.length})</label>
+            <div class="dvn-list">${(reqRows + reqRemoved) || '<div class="empty">none</div>'}</div>
+            <div class="actions">
+              <button class="ghost mini" onclick="ulnAddDvn('${side}','req')">+ add required</button>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div>
+            <label>Optional DVNs ${useDefaultOptional ? "(ignored — using default sentinel)" : `(${u.optionalDVNs.length})`}</label>
+            <div class="dvn-list">${(optRows + optRemoved) || '<div class="empty">none</div>'}</div>
+            <div class="actions">
+              <button class="ghost mini" onclick="ulnAddDvn('${side}','opt')" ${useDefaultOptional ? "disabled" : ""}>+ add optional</button>
+            </div>
+          </div>`;
+      }
+      window.ulnScalar = function (side, key, val) {
+        ulnState[side][key] = val;
+        updateUlnDiff(side);
+      };
+      window.ulnToggleDefaultOptional = function (side, checked) {
+        if (checked) {
+          ulnState[side].optionalDVNCount = DEFAULT_OPTIONAL_DVN_COUNT;
+          ulnState[side].optionalDVNs = [];
+        } else {
+          ulnState[side].optionalDVNCount = ulnState[side].optionalDVNs.length;
+        }
+        rebuildUlnForm(side);
+        updateUlnDiff(side);
+      };
+      window.ulnAddDvn = function (side, kind) {
+        const arr = kind === "req" ? ulnState[side].requiredDVNs : ulnState[side].optionalDVNs;
+        arr.push("0x0000000000000000000000000000000000000000");
+        if (kind === "req") ulnState[side].requiredDVNCount = arr.length;
+        else if (ulnState[side].optionalDVNCount !== DEFAULT_OPTIONAL_DVN_COUNT)
+          ulnState[side].optionalDVNCount = arr.length;
+        rebuildUlnForm(side);
+        updateUlnDiff(side);
+      };
+      window.ulnRemoveDvn = function (side, kind, i) {
+        const arr = kind === "req" ? ulnState[side].requiredDVNs : ulnState[side].optionalDVNs;
+        arr.splice(i, 1);
+        if (kind === "req") ulnState[side].requiredDVNCount = arr.length;
+        else if (ulnState[side].optionalDVNCount !== DEFAULT_OPTIONAL_DVN_COUNT)
+          ulnState[side].optionalDVNCount = arr.length;
+        rebuildUlnForm(side);
+        updateUlnDiff(side);
+      };
+      window.ulnMoveDvn = function (side, kind, i, dir) {
+        const arr = kind === "req" ? ulnState[side].requiredDVNs : ulnState[side].optionalDVNs;
+        const j = i + dir;
+        if (j < 0 || j >= arr.length) return;
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+        rebuildUlnForm(side);
+        updateUlnDiff(side);
+      };
+      window.ulnUpdateDvn = function (ev) {
+        const side = ev.target.dataset.side;
+        const kind = ev.target.dataset.kind;
+        const i = Number(ev.target.dataset.idx);
+        const arr = kind === "req" ? ulnState[side].requiredDVNs : ulnState[side].optionalDVNs;
+        arr[i] = ev.target.value.trim();
+        updateUlnDiff(side);
+      };
+
+      function ulnEquals(a, b) {
+        if (BigInt(a.confirmations) !== BigInt(b.confirmations)) return false;
+        if (a.requiredDVNCount !== b.requiredDVNCount) return false;
+        if (a.optionalDVNCount !== b.optionalDVNCount) return false;
+        if (a.optionalDVNThreshold !== b.optionalDVNThreshold) return false;
+        if (a.requiredDVNs.length !== b.requiredDVNs.length) return false;
+        if (a.optionalDVNs.length !== b.optionalDVNs.length) return false;
+        for (let i = 0; i < a.requiredDVNs.length; i++)
+          if (!addrEq(a.requiredDVNs[i], b.requiredDVNs[i])) return false;
+        for (let i = 0; i < a.optionalDVNs.length; i++)
+          if (!addrEq(a.optionalDVNs[i], b.optionalDVNs[i])) return false;
+        return true;
+      }
+      function updateUlnDiff(side) {
+        const cur = currentState.uln[side];
+        const nxt = ulnState[side];
+        const diffId = side === "send" ? "ulnSendDiff" : "ulnRecvDiff";
+        const lines = [];
+        if (cur.confirmations.toString() !== String(nxt.confirmations))
+          lines.push(`<span class="chg">confirmations</span>  <code>${cur.confirmations.toString()}</code> → <code>${nxt.confirmations}</code>`);
+        if (Number(cur.optionalDVNCount) !== Number(nxt.optionalDVNCount))
+          lines.push(`<span class="chg">optionalDVNCount</span>  <code>${cur.optionalDVNCount}</code> → <code>${nxt.optionalDVNCount}</code>`);
+        if (Number(cur.optionalDVNThreshold) !== Number(nxt.optionalDVNThreshold))
+          lines.push(`<span class="chg">optionalDVNThreshold</span>  <code>${cur.optionalDVNThreshold}</code> → <code>${nxt.optionalDVNThreshold}</code>`);
+        const fmtDvn = (a) => {
+          const nm = dvnName(a);
+          return `<code>${shorten(a)}</code>${nm ? ` <span class="muted">(${nm})</span>` : ""}`;
+        };
+        const dvnDiff = (label, curArr, nxtArr) => {
+          const curSet = new Set(curArr.map((a) => (a || "").toLowerCase()));
+          const nxtSet = new Set(nxtArr.map((a) => (a || "").toLowerCase()));
+          const added = [...nxtSet].filter((a) => !curSet.has(a));
+          const removed = [...curSet].filter((a) => !nxtSet.has(a));
+          for (const a of added)   lines.push(`<span class="add">+ ${label} DVN</span>  ${fmtDvn(a)}`);
+          for (const a of removed) lines.push(`<span class="rem">− ${label} DVN</span>  ${fmtDvn(a)}`);
+        };
+        dvnDiff("required", cur.requiredDVNs, nxt.requiredDVNs);
+        dvnDiff("optional", cur.optionalDVNs, nxt.optionalDVNs);
+        renderDiffSummary(diffId, lines);
+      }
+
+      // ---- Peer panel ----
+      function renderPeerPanel() {
+        const peerB32 = currentState.peer;
+        document.getElementById("peerCurrent").value = peerB32;
+        const asAddr = "0x" + peerB32.slice(-40);
+        document.getElementById("peerNew").value =
+          peerB32 === ethers.ZeroHash
+            ? ""
+            : ethers.getAddress(asAddr);
+        document.getElementById("peerStatus").textContent = "loaded";
+        document.getElementById("peerStatus").className = "pill ok";
+        updatePeerDiff();
+      }
+      function updatePeerDiff() {
+        const peerInput = document.getElementById("peerNew");
+        const newAddr = peerInput.value.trim();
+        let newB32;
+        try { newB32 = newAddr === "0x0" || newAddr === "" || addrEq(newAddr, ethers.ZeroAddress)
+              ? ethers.ZeroHash
+              : ethers.zeroPadValue(ethers.getAddress(newAddr), 32); }
+        catch { newB32 = "(invalid)"; }
+        const same = newB32 === currentState.peer;
+        peerInput.classList.toggle("field-changed", !same);
+        const curAddr = currentState.peer === ethers.ZeroHash
+          ? "(unset)"
+          : shorten("0x" + currentState.peer.slice(-40));
+        const lines = same ? [] : [
+          `<span class="chg">peer</span>  <code>${curAddr}</code> → <code>${newB32 === "(invalid)" ? "(invalid)" : shorten(newAddr)}</code>`,
+        ];
+        renderDiffSummary("peerDiff", lines);
+      }
+
+      // ---- Enforced Options panel ----
+      const eoState = { 1: [], 2: [] };
+      function renderEoPanel() {
+        eoState[1] = JSON.parse(JSON.stringify(currentState.eo[1], stringifyBig), reviveBig);
+        eoState[2] = JSON.parse(JSON.stringify(currentState.eo[2], stringifyBig), reviveBig);
+        document.getElementById("eoStatus").textContent = "loaded";
+        document.getElementById("eoStatus").className = "pill ok";
+        rebuildEoForm();
+        updateEoDiff();
+      }
+      function stringifyBig(_k, v) {
+        return typeof v === "bigint" ? v.toString() : v;
+      }
+      function reviveBig(k, v) {
+        if (k === "gas" || k === "value") return typeof v === "string" && /^\d+$/.test(v) ? BigInt(v) : BigInt(v || 0);
+        return v;
+      }
+      function eoItemEquals(a, b) {
+        if (!a || !b || a.kind !== b.kind) return false;
+        if (a.kind === "executorLzReceive")
+          return BigInt(a.gas) === BigInt(b.gas) && BigInt(a.value) === BigInt(b.value);
+        if (a.kind === "executorLzCompose")
+          return a.index === b.index && BigInt(a.gas) === BigInt(b.gas) && BigInt(a.value) === BigInt(b.value);
+        if (a.kind === "raw")
+          return a.workerId === b.workerId && a.type === b.type && bytesEq(a.body, b.body);
+        return false;
+      }
+      function eoRowClass(mt, i, it) {
+        const cur = currentState.eo[mt][i];
+        if (!cur) return " row-added";
+        return eoItemEquals(cur, it) ? "" : " row-changed";
+      }
+      function eoRowHtml(mt, i, it, editable) {
+        const cls = editable ? eoRowClass(mt, i, it) : " row-removed";
+        const attrs = editable ? "" : "disabled";
+        if (it.kind === "executorLzReceive") {
+          return `<div class="option-row${cls}">
+            <span class="tag">lzReceive</span>
+            <input ${attrs} value="${it.gas}" ${editable ? `oninput="eoEdit(${mt},${i},'gas',this.value)"` : ""} />
+            <input ${attrs} value="${it.value}" ${editable ? `oninput="eoEdit(${mt},${i},'value',this.value)"` : ""} />
+            <span class="mono-small muted">gas / value (uint128)</span>
+            ${editable ? `<button class="ghost mini danger" onclick="eoRemove(${mt},${i})">×</button>` : `<span class="mini rem">removed</span>`}
+          </div>`;
+        }
+        if (it.kind === "executorLzCompose") {
+          return `<div class="option-row${cls}">
+            <span class="tag">lzCompose</span>
+            <input ${attrs} value="${it.index}" ${editable ? `oninput="eoEdit(${mt},${i},'index',Number(this.value))"` : ""} />
+            <input ${attrs} value="${it.gas}" ${editable ? `oninput="eoEdit(${mt},${i},'gas',this.value)"` : ""} />
+            <input ${attrs} value="${it.value}" ${editable ? `oninput="eoEdit(${mt},${i},'value',this.value)"` : ""} />
+            ${editable ? `<button class="ghost mini danger" onclick="eoRemove(${mt},${i})">×</button>` : `<span class="mini rem">removed</span>`}
+          </div>`;
+        }
+        return `<div class="option-row${cls}">
+          <span class="tag">raw w${it.workerId} t${it.type}</span>
+          <input ${attrs} value="${it.body}" style="grid-column: 2 / span 3" ${editable ? `oninput="eoEdit(${mt},${i},'body',this.value)"` : ""} />
+          ${editable ? `<button class="ghost mini danger" onclick="eoRemove(${mt},${i})">×</button>` : `<span class="mini rem">removed</span>`}
+        </div>`;
+      }
+      function rebuildEoForm() {
+        const el = document.getElementById("eoForm");
+        el.innerHTML = [1, 2].map((mt) => {
+          const items = eoState[mt];
+          const cur = currentState.eo[mt] || [];
+          const rows = items.map((it, i) => eoRowHtml(mt, i, it, true)).join("");
+          const removedRows = cur.slice(items.length).map((it, idx) =>
+            eoRowHtml(mt, items.length + idx, it, false)).join("");
+          return `<div class="msgtype-block">
+            <div class="msgtype-head">
+              <b>msgType ${mt}</b>
+              <div>
+                <button class="ghost mini" onclick="eoAdd(${mt},'executorLzReceive')">+ lzReceive</button>
+                <button class="ghost mini" onclick="eoAdd(${mt},'executorLzCompose')">+ lzCompose</button>
+              </div>
+            </div>
+            ${(rows + removedRows) || '<div class="empty">no options</div>'}
+          </div>`;
+        }).join("");
+      }
+      window.eoAdd = function (mt, kind) {
+        if (kind === "executorLzReceive") eoState[mt].push({ kind, gas: 65000n, value: 0n });
+        else eoState[mt].push({ kind, index: 0, gas: 65000n, value: 0n });
+        rebuildEoForm();
+        updateEoDiff();
+      };
+      window.eoRemove = function (mt, i) {
+        eoState[mt].splice(i, 1);
+        rebuildEoForm();
+        updateEoDiff();
+      };
+      window.eoEdit = function (mt, i, key, val) {
+        const it = eoState[mt][i];
+        if (key === "gas" || key === "value") {
+          try { it[key] = BigInt(val || "0"); } catch { /* keep previous */ }
+        } else {
+          it[key] = val;
+        }
+        updateEoDiff();
+      };
+      function eoEquals(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          const x = a[i], y = b[i];
+          if (x.kind !== y.kind) return false;
+          if (x.kind === "executorLzReceive") {
+            if (BigInt(x.gas) !== BigInt(y.gas) || BigInt(x.value) !== BigInt(y.value)) return false;
+          } else if (x.kind === "executorLzCompose") {
+            if (x.index !== y.index) return false;
+            if (BigInt(x.gas) !== BigInt(y.gas) || BigInt(x.value) !== BigInt(y.value)) return false;
+          } else if (x.kind === "raw") {
+            if (x.workerId !== y.workerId || x.type !== y.type) return false;
+            if (!bytesEq(x.body, y.body)) return false;
+          }
+        }
+        return true;
+      }
+      function describeEoItem(it) {
+        if (!it) return "∅";
+        if (it.kind === "executorLzReceive")
+          return `lzReceive(gas=${it.gas}, value=${it.value})`;
+        if (it.kind === "executorLzCompose")
+          return `lzCompose(idx=${it.index}, gas=${it.gas}, value=${it.value})`;
+        return `raw(w${it.workerId}, t${it.type}, ${it.body})`;
+      }
+      function updateEoDiff() {
+        const lines = [];
+        for (const mt of [1, 2]) {
+          const cur = currentState.eo[mt] || [];
+          const nxt = eoState[mt] || [];
+          const maxLen = Math.max(cur.length, nxt.length);
+          for (let i = 0; i < maxLen; i++) {
+            const a = cur[i], b = nxt[i];
+            if (!a && b)  lines.push(`<span class="add">+ mt${mt}[${i}]</span>  <code>${describeEoItem(b)}</code>`);
+            else if (a && !b) lines.push(`<span class="rem">− mt${mt}[${i}]</span>  <code>${describeEoItem(a)}</code>`);
+            else if (!eoItemEquals(a, b))
+              lines.push(`<span class="chg">Δ mt${mt}[${i}]</span>  <code>${describeEoItem(a)}</code> → <code>${describeEoItem(b)}</code>`);
+          }
+        }
+        renderDiffSummary("eoDiff", lines);
+      }
+      window.resetEoDefaults = function () {
+        eoState[1] = [{ kind: "executorLzReceive", gas: 65000n, value: 0n }];
+        eoState[2] = [
+          { kind: "executorLzReceive", gas: 65000n, value: 0n },
+          { kind: "executorLzCompose", index: 0, gas: 65000n, value: 0n },
+        ];
+        rebuildEoForm();
+        updateEoDiff();
+      };
+
+      // ---------- queuing ----------
+      function addCall(label, to, data, group) {
+        batch.push({ label, to: ethers.getAddress(to), value: 0n, data, group });
+        updateBatchUI();
+      }
+
+      window.queueLibraries = function () {
+        const s = currentState.src;
+        const endpoint = currentState.endpoint;
+        const oft = currentState.oft;
+        const dstEid = currentState.dstEid;
+        const sendNew = document.getElementById("libSendNew").value.trim();
+        const recvNew = document.getElementById("libRecvNew").value.trim();
+        let n = 0;
+        if (!addrEq(sendNew, currentState.sendLib)) {
+          const data = IEndpoint.encodeFunctionData("setSendLibrary",
+            [oft, dstEid, ethers.getAddress(sendNew)]);
+          addCall(`setSendLibrary(oft, eid=${dstEid}, ${shorten(sendNew)})`, endpoint, data, "lib");
+          n++;
+        }
+        if (!addrEq(recvNew, currentState.recvLib)) {
+          const data = IEndpoint.encodeFunctionData("setReceiveLibrary",
+            [oft, dstEid, ethers.getAddress(recvNew), 0]);
+          addCall(`setReceiveLibrary(oft, eid=${dstEid}, ${shorten(recvNew)}, 0)`, endpoint, data, "lib");
+          n++;
+        }
+        if (n === 0) ctxLog("Libraries: no change to queue", "info");
+      };
+
+      window.queueExecutor = function () {
+        const max = Number(document.getElementById("execMaxSize").value || 0);
+        const addr = document.getElementById("execAddr").value.trim();
+        if (max === currentState.exec.maxMessageSize && addrEq(addr, currentState.exec.executor)) {
+          ctxLog("Executor: no change to queue", "info"); return;
+        }
+        const encoded = encodeExec({ maxMessageSize: max, executor: addr });
+        const data = IEndpoint.encodeFunctionData("setConfig", [
+          currentState.oft,
+          currentState.sendLib,
+          [{ eid: currentState.dstEid, configType: EXECUTOR_CONFIG_TYPE, config: encoded }],
+        ]);
+        addCall(`setConfig(sendLib, executor: size=${max}, exec=${shorten(addr)})`,
+                currentState.endpoint, data, "exec");
+      };
+
+      window.queueUln = function (side) {
+        const cur = currentState.uln[side];
+        const nxt = ulnState[side];
+        if (ulnEquals({ ...cur, confirmations: cur.confirmations.toString() }, nxt)) {
+          ctxLog("ULN " + side + ": no change to queue", "info"); return;
+        }
+        const libAddr = side === "send" ? currentState.sendLib : currentState.recvLib;
+        const encoded = encodeUln({
+          confirmations: BigInt(nxt.confirmations || 0),
+          requiredDVNCount: nxt.requiredDVNCount,
+          optionalDVNCount: nxt.optionalDVNCount,
+          optionalDVNThreshold: nxt.optionalDVNThreshold,
+          requiredDVNs: nxt.requiredDVNs,
+          optionalDVNs: nxt.optionalDVNs,
+        });
+        const data = IEndpoint.encodeFunctionData("setConfig", [
+          currentState.oft,
+          libAddr,
+          [{ eid: currentState.dstEid, configType: ULN_CONFIG_TYPE, config: encoded }],
+        ]);
+        addCall(`setConfig(${side}Lib, ULN: ${nxt.requiredDVNs.length} req / ${nxt.optionalDVNCount === DEFAULT_OPTIONAL_DVN_COUNT ? "default" : nxt.optionalDVNs.length} opt)`,
+                currentState.endpoint, data, "uln");
+      };
+
+      window.queuePeer = function () {
+        const newAddr = document.getElementById("peerNew").value.trim();
+        const newB32 = (newAddr === "0x0" || newAddr === "" || addrEq(newAddr, ethers.ZeroAddress))
+          ? ethers.ZeroHash
+          : ethers.zeroPadValue(ethers.getAddress(newAddr), 32);
+        if (newB32 === currentState.peer) { ctxLog("Peer: no change to queue", "info"); return; }
+        const data = IOFT.encodeFunctionData("setPeer", [currentState.dstEid, newB32]);
+        addCall(`setPeer(eid=${currentState.dstEid}, ${newB32.slice(0, 10)}…)`,
+                currentState.oft, data, "peer");
+      };
+
+      window.queueEnforcedOptions = function () {
+        const params = [];
+        for (const mt of [1, 2]) {
+          if (!eoEquals(currentState.eo[mt], eoState[mt])) {
+            const encoded = encodeOptions(eoState[mt]);
+            params.push({ eid: currentState.dstEid, msgType: mt, options: encoded });
+          }
+        }
+        if (params.length === 0) { ctxLog("Enforced options: no change to queue", "info"); return; }
+        const data = IOFT.encodeFunctionData("setEnforcedOptions", [params]);
+        addCall(`setEnforcedOptions(${params.length} entries)`, currentState.oft, data, "eo");
+      };
+
+      window.queueAll = function () {
+        if (!currentState) { ctxLog("Load on-chain state before queuing.", "err"); return; }
+        const before = batch.length;
+        queueDelegate();  // must be first — enables all subsequent setConfig/setLibrary calls
+        queueLibraries();
+        queueExecutor();
+        queueUln("send");
+        queueUln("recv");
+        queuePeer();
+        queueEnforcedOptions();
+        const added = batch.length - before;
+        if (added === 0) ctxLog("Queue all: no changes detected across panels.", "info");
+        else ctxLog(`Queued ${added} call${added === 1 ? "" : "s"} from all panels.`, "ok");
+      };
+
+      // ---------- batch UI ----------
+      function updateBatchUI() {
+        const el = document.getElementById("batchList");
+        const cnt = document.getElementById("batchCount");
+        cnt.textContent = batch.length + " call" + (batch.length === 1 ? "" : "s");
+        if (batch.length === 0) { el.innerHTML = '<div class="empty">No calls queued.</div>'; return; }
+        el.innerHTML = batch.map((c, i) => `
+          <div class="queued-call">
+            <span>${i + 1}. <span class="tag">${c.group}</span> ${c.label}
+              <span class="muted">→ ${shorten(c.to)}</span></span>
+            <button class="ghost mini danger" onclick="removeCall(${i})">remove</button>
+          </div>`).join("");
+      }
+      window.removeCall = function (i) { batch.splice(i, 1); updateBatchUI(); };
+      window.clearBatch = function () { batch.length = 0; updateBatchUI(); };
+
+      // ---------- MultiSend ----------
+      function encodeMultiSendBlob(calls) {
+        let packed = "0x";
+        for (const c of calls) {
+          const dataBytes = ethers.getBytes(c.data);
+          const seg = ethers.solidityPacked(
+            ["uint8", "address", "uint256", "uint256", "bytes"],
+            [0, ethers.getAddress(c.to), c.value || 0n, dataBytes.length, c.data],
+          );
+          packed = ethers.concat([packed, seg]);
+        }
+        return ethers.hexlify(packed);
+      }
+      function buildMultiSendTx(multiSendAddr, calls) {
+        if (calls.length === 0) throw new Error("No calls queued");
+        if (calls.length === 1) {
+          return { to: calls[0].to, value: 0n, data: calls[0].data, operation: 0 };
+        }
+        const blob = encodeMultiSendBlob(calls);
+        return {
+          to: ethers.getAddress(multiSendAddr),
+          value: 0n,
+          data: IMultiSend.encodeFunctionData("multiSend", [blob]),
+          operation: 1, // DelegateCall into MultiSendCallOnly
+        };
+      }
+
+      // ---------- Safe proposal ----------
+      async function fetchSafeInfo(network, safe) {
+        if (!network.safeTxServiceUrl) return null;
+        const url = `${network.safeTxServiceUrl}/api/v1/safes/${ethers.getAddress(safe)}/`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Safe API " + res.status + ": " + await res.text());
+        return await res.json();
+      }
+
+      // Returns the next available nonce for a NEW proposal (queued, not replacement).
+      // = max(executed nonce, highest queued nonce + 1)
+      async function fetchNextQueuedNonce(network, safe, executedNonce) {
+        const base = `${network.safeTxServiceUrl}/api/v1/safes/${ethers.getAddress(safe)}/multisig-transactions/?ordering=-nonce&limit=1`;
+        const res = await fetch(base);
+        if (!res.ok) return executedNonce;
+        const data = await res.json();
+        const top = (data.results && data.results[0]) || null;
+        if (!top) return executedNonce;
+        const topNonce = BigInt(top.nonce);
+        const candidate = topNonce + 1n;
+        return candidate > executedNonce ? candidate : executedNonce;
+      }
+
+      async function proposeToSafe() {
+        const propLog = document.getElementById("proposeLog");
+        propLog.style.display = "block"; propLog.innerHTML = "";
+        const log = (m, k) => logTo("proposeLog", m, k);
+        try {
+          if (!signer) { showConnectModal(); throw new Error("Connect a wallet first"); }
+          if (batch.length === 0) throw new Error("Batch is empty");
+          if (!userAddress) throw new Error("Wallet not connected (no signer address)");
+          const s = currentState?.src || srcNet();
+          await ensureChain(s.chainId);
+
+          // Auto-detect Safe-as-wallet: connected address has code on the src chain.
+          let code = "0x";
+          try { code = await rpcCall(s.rpcUrl, "eth_getCode", [userAddress, "latest"]); } catch {}
+          const isSafeAsWallet = code && code !== "0x" && code !== "0x0";
+
+          if (isSafeAsWallet) {
+            log(`Connected address is a contract on ${s.label} — treating as Safe{Wallet}.`, "info");
+            if (batch.length > 1) {
+              log(`Note: Safe{Wallet}-via-WalletConnect queues each call as a separate proposal (${batch.length} total). Connect an owner EOA (MetaMask/Rabby/hardware) for atomic MultiSend batching.`, "warn");
+            }
+            for (let i = 0; i < batch.length; i++) {
+              const c = batch[i];
+              log(`Submitting ${i + 1}/${batch.length}: ${c.label}`, "info");
+              const hash = await signer.provider.send("eth_sendTransaction", [{
+                from: userAddress,
+                to: c.to,
+                value: "0x0",
+                data: c.data,
+              }]);
+              log(`Queued in Safe{Wallet}: ${hash}`, "ok");
+            }
+            log("All calls submitted — confirm in Safe{Wallet}.", "ok");
+            clearBatch();
+            return;
+          }
+
+          // EOA owner flow: sign SafeTx and POST to Safe Transaction Service.
+          const rawSafe = (document.getElementById("safeAddr").value || "").trim();
+          if (!rawSafe) throw new Error("Safe address is empty — paste the Safe you want to propose to, or connect via Safe{Wallet} WalletConnect");
+          let safe;
+          try { safe = ethers.getAddress(rawSafe); }
+          catch { throw new Error(`Safe address is not a valid 0x address: "${rawSafe}"`); }
+          if (!s.safeTxServiceUrl) {
+            log("This chain has no Safe Transaction Service — use 'Download Safe TX Builder JSON' instead.", "err");
+            return;
+          }
+
+          log("Fetching Safe info…", "info");
+          const info = await fetchSafeInfo(s, safe);
+          const executedNonce = BigInt(info.nonce);
+          const nonce = await fetchNextQueuedNonce(s, safe, executedNonce);
+          if (nonce !== executedNonce) {
+            log(`Executed nonce=${executedNonce}, next queued nonce=${nonce} (appending — won't replace pending tx)`, "info");
+          } else {
+            log(`nonce=${nonce}, threshold=${info.threshold}, version=${info.version}`, "info");
+          }
+
+          const tx = buildMultiSendTx(s.multiSendCallOnly, batch);
+          log(`Building Safe tx: to=${shorten(tx.to)} op=${tx.operation} ${batch.length} inner call(s)`, "info");
+
+          const domain = { chainId: s.chainId, verifyingContract: safe };
+          const types = {
+            SafeTx: [
+              { name: "to", type: "address" },
+              { name: "value", type: "uint256" },
+              { name: "data", type: "bytes" },
+              { name: "operation", type: "uint8" },
+              { name: "safeTxGas", type: "uint256" },
+              { name: "baseGas", type: "uint256" },
+              { name: "gasPrice", type: "uint256" },
+              { name: "gasToken", type: "address" },
+              { name: "refundReceiver", type: "address" },
+              { name: "nonce", type: "uint256" },
+            ],
+          };
+          const message = {
+            to: tx.to, value: tx.value, data: tx.data, operation: tx.operation,
+            safeTxGas: 0n, baseGas: 0n, gasPrice: 0n,
+            gasToken: ethers.ZeroAddress, refundReceiver: ethers.ZeroAddress,
+            nonce,
+          };
+          const contractTransactionHash = ethers.TypedDataEncoder.hash(domain, types, message);
+          log("SafeTx hash: " + contractTransactionHash, "info");
+
+          log("Awaiting wallet signature (EIP-712)…", "info");
+          const signature = await signer.signTypedData(domain, types, message);
+
+          const body = {
+            to: tx.to,
+            value: tx.value.toString(),
+            data: tx.data,
+            operation: tx.operation,
+            safeTxGas: "0",
+            baseGas: "0",
+            gasPrice: "0",
+            gasToken: ethers.ZeroAddress,
+            refundReceiver: ethers.ZeroAddress,
+            nonce: nonce.toString(),
+            contractTransactionHash,
+            sender: ethers.getAddress(userAddress),
+            signature,
+            origin: ORIGIN,
+          };
+          log("Posting to Safe Transaction Service…", "info");
+          const res = await fetch(
+            `${s.safeTxServiceUrl}/api/v1/safes/${safe}/multisig-transactions/`,
+            { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+          );
+          if (!res.ok) throw new Error("Safe API " + res.status + ": " + await res.text());
+          const url = `https://app.safe.global/transactions/queue?safe=${s.safeUiPrefix}:${safe}`;
+          log("Proposal accepted ✓", "ok");
+          log("Open in Safe UI: " + url, "ok");
+          clearBatch();
+        } catch (e) {
+          console.error(e);
+          log("Error: " + (e.message || e), "err");
+        }
+      }
+
+      // ---------- Safe Transaction Builder JSON fallback ----------
+      function downloadTxBuilderJson() {
+        if (batch.length === 0) { alert("Batch is empty"); return; }
+        const s = currentState?.src || srcNet();
+        const safe = (document.getElementById("safeAddr").value || "").trim();
+        const out = {
+          version: "1.0",
+          chainId: s.chainId.toString(),
+          createdAt: Date.now(),
+          meta: {
+            name: `LZ OFT config · ${s.label} → ${currentState?.dst?.label || ""}`,
+            description: ORIGIN,
+            txBuilderVersion: "1.17.0",
+            createdFromSafeAddress: safe,
+            createdFromOwnerAddress: userAddress || "",
+          },
+          transactions: batch.map((c) => ({
+            to: c.to,
+            value: bnToStr(c.value || 0n),
+            data: c.data,
+            contractMethod: null,
+            contractInputsValues: null,
+          })),
+        };
+        const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lz-oft-safe-${srcKey()}-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      // ---------- Config JSON import / export ----------
+      // Schema v1 — all fields optional so you can ship partial configs.
+      // {
+      //   "version": 1,
+      //   "src": "ethereum", "dst": "base",
+      //   "safe": "0x…", "oft": "0x…", "endpoint": "0x…", "peerOft": "0x…",
+      //   "libraries": { "sendLib": "0x…", "receiveLib": "0x…" },
+      //   "executor": { "maxMessageSize": 10000, "executor": "0x…" },
+      //   "ulnSend": { "confirmations": "10", "requiredDVNCount": 2,
+      //                "optionalDVNCount": 0, "optionalDVNThreshold": 0,
+      //                "requiredDVNs": ["0x…"], "optionalDVNs": [] },
+      //   "ulnRecv": { … },
+      //   "peer": "0x…",
+      //   "enforcedOptions": {
+      //     "1": [{ "kind": "executorLzReceive", "gas": "65000", "value": "0" }],
+      //     "2": [ … ]
+      //   }
+      // }
+      function serializeUln(u) {
+        if (!u) return null;
+        return {
+          confirmations: String(u.confirmations),
+          requiredDVNCount: Number(u.requiredDVNCount),
+          optionalDVNCount: Number(u.optionalDVNCount),
+          optionalDVNThreshold: Number(u.optionalDVNThreshold),
+          requiredDVNs: [...u.requiredDVNs],
+          optionalDVNs: [...u.optionalDVNs],
+        };
+      }
+      function serializeEo(arr) {
+        return (arr || []).map((o) => {
+          if (o.kind === "executorLzReceive")
+            return { kind: o.kind, gas: o.gas.toString(), value: o.value.toString() };
+          if (o.kind === "executorLzCompose")
+            return { kind: o.kind, index: Number(o.index), gas: o.gas.toString(), value: o.value.toString() };
+          return { kind: "raw", workerId: o.workerId, type: o.type, body: o.body };
+        });
+      }
+      function getCurrentEditState() {
+        const gv = (id) => (document.getElementById(id).value || "").trim();
+        return {
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          src: srcKey(),
+          dst: dstKey(),
+          safe: gv("safeAddr"),
+          oft: gv("srcOft"),
+          endpoint: gv("srcEndpoint"),
+          peerOft: gv("dstOft"),
+          libraries: {
+            sendLib: gv("libSendNew"),
+            receiveLib: gv("libRecvNew"),
+          },
+          executor: {
+            maxMessageSize: Number(gv("execMaxSize") || 0),
+            executor: gv("execAddr"),
+          },
+          ulnSend: serializeUln(ulnState.send),
+          ulnRecv: serializeUln(ulnState.recv),
+          peer: gv("peerNew"),
+          enforcedOptions: { 1: serializeEo(eoState[1]), 2: serializeEo(eoState[2]) },
+        };
+      }
+
+      window.exportConfigJson = function () {
+        const cfg = getCurrentEditState();
+        const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `lz-oft-config-${cfg.src}-${cfg.dst}-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        ctxLog(`Exported config (${cfg.src} → ${cfg.dst})`, "ok");
+      };
+
+      window.importConfigJson = function () {
+        document.getElementById("importFile").click();
+      };
+
+      window.handleImportFile = async function (event) {
+        const file = event.target.files[0];
+        event.target.value = ""; // allow re-import of same file
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const cfg = JSON.parse(text);
+          await applyImportedConfig(cfg);
+        } catch (e) {
+          console.error(e);
+          ctxLog("Import failed: " + (e.message || e), "err");
+        }
+      };
+
+      function normalizeUln(u) {
+        const req = (u.requiredDVNs || []).map((a) => ethers.getAddress(a));
+        const opt = (u.optionalDVNs || []).map((a) => ethers.getAddress(a));
+        return {
+          confirmations: String(u.confirmations ?? 0),
+          requiredDVNCount: Number(u.requiredDVNCount ?? req.length),
+          optionalDVNCount: Number(u.optionalDVNCount ?? opt.length),
+          optionalDVNThreshold: Number(u.optionalDVNThreshold ?? 0),
+          requiredDVNs: req,
+          optionalDVNs: opt,
+        };
+      }
+      function normalizeEoItem(o) {
+        if (!o || !o.kind) return null;
+        if (o.kind === "executorLzReceive")
+          return { kind: o.kind, gas: BigInt(o.gas ?? 0), value: BigInt(o.value ?? 0) };
+        if (o.kind === "executorLzCompose")
+          return { kind: o.kind, index: Number(o.index ?? 0),
+                   gas: BigInt(o.gas ?? 0), value: BigInt(o.value ?? 0) };
+        return { kind: "raw", workerId: Number(o.workerId), type: Number(o.type), body: o.body };
+      }
+
+      async function applyImportedConfig(cfg) {
+        if (!cfg || typeof cfg !== "object") throw new Error("invalid JSON");
+        if (cfg.version && Number(cfg.version) !== 1)
+          ctxLog(`Config version=${cfg.version}, expected 1`, "warn");
+
+        // Refuse mismatched src/dst — user must align the UI first.
+        const uiSrc = document.getElementById("srcNet").value;
+        const uiDst = document.getElementById("dstNet").value;
+        if (cfg.src && cfg.src !== uiSrc) {
+          ctxLog(`Import blocked: config src=${cfg.src} but UI src=${uiSrc}. Switch the source network and retry.`, "err");
+          return;
+        }
+        if (cfg.dst && cfg.dst !== uiDst) {
+          ctxLog(`Import blocked: config dst=${cfg.dst} but UI dst=${uiDst}. Switch the destination network and retry.`, "err");
+          return;
+        }
+
+        if (cfg.safe) document.getElementById("safeAddr").value = cfg.safe;
+        if (cfg.oft) document.getElementById("srcOft").value = cfg.oft;
+        if (cfg.endpoint) document.getElementById("srcEndpoint").value = cfg.endpoint;
+        if (cfg.peerOft) document.getElementById("dstOft").value = cfg.peerOft;
+
+        ctxLog(`Imported config (${cfg.src || "?"} → ${cfg.dst || "?"}); loading on-chain state for diff…`, "info");
+
+        // Fetch current on-chain state so the form can render diffs
+        try {
+          await loadAllPanels();
+        } catch (e) {
+          ctxLog("On-chain load failed — applying edit values without live diff", "err");
+        }
+        if (!currentState) {
+          ctxLog("Cannot apply edits until on-chain state loads. Fix RPC or config and retry.", "err");
+          return;
+        }
+
+        // Override the editable fields from the imported config
+        if (cfg.libraries) {
+          if (cfg.libraries.sendLib)
+            document.getElementById("libSendNew").value = cfg.libraries.sendLib;
+          if (cfg.libraries.receiveLib)
+            document.getElementById("libRecvNew").value = cfg.libraries.receiveLib;
+          updateLibDiff();
+        }
+        if (cfg.executor) {
+          if (cfg.executor.maxMessageSize !== undefined)
+            document.getElementById("execMaxSize").value = String(cfg.executor.maxMessageSize);
+          if (cfg.executor.executor)
+            document.getElementById("execAddr").value = cfg.executor.executor;
+          updateExecDiff();
+        }
+        if (cfg.ulnSend) {
+          ulnState.send = normalizeUln(cfg.ulnSend);
+          rebuildUlnForm("send");
+          updateUlnDiff("send");
+        }
+        if (cfg.ulnRecv) {
+          ulnState.recv = normalizeUln(cfg.ulnRecv);
+          rebuildUlnForm("recv");
+          updateUlnDiff("recv");
+        }
+        if (cfg.peer) {
+          document.getElementById("peerNew").value = cfg.peer;
+          updatePeerDiff();
+        }
+        if (cfg.enforcedOptions) {
+          for (const mt of [1, 2]) {
+            const src = cfg.enforcedOptions[mt] ?? cfg.enforcedOptions[String(mt)];
+            if (!Array.isArray(src)) continue;
+            eoState[mt] = src.map(normalizeEoItem).filter(Boolean);
+          }
+          rebuildEoForm();
+          updateEoDiff();
+        }
+        ctxLog("Applied imported config — inspect diffs, then queue & propose.", "ok");
+      }
+
+      // ---------- DVN name registry ----------
+      // Keyed per-chain: the same DVN address can belong to different providers on different chains.
+      window.DVN_NAMES_BY_CHAIN = {};
+      const NETWORK_TO_LZ_META = {
+        ethereum: "ethereum",
+        bnb: "bsc",
+        base: "base",
+        hyper: "hyperliquid",
+        sepolia: "sepolia",
+        baseSepolia: "base-sepolia",
+      };
+      async function loadDvnMetadata() {
+        try {
+          const res = await fetch("https://metadata.layerzero-api.com/v1/metadata/dvns");
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          let n = 0;
+          for (const [chainKey, chain] of Object.entries(data)) {
+            const dvns = chain && chain.dvns;
+            if (!dvns) continue;
+            const bucket = (window.DVN_NAMES_BY_CHAIN[chainKey] ||= {});
+            for (const [addr, info] of Object.entries(dvns)) {
+              if (info && info.canonicalName) {
+                bucket[addr.toLowerCase()] = info.canonicalName;
+                n++;
+              }
+            }
+          }
+          if (currentState) { renderUlnPanel("send"); renderUlnPanel("recv"); }
+          ctxLog(`DVN registry loaded (${n} entries across ${Object.keys(window.DVN_NAMES_BY_CHAIN).length} chains)`, "info");
+        } catch (e) {
+          console.warn("DVN metadata fetch failed:", e);
+        }
+      }
+      function dvnName(addr) {
+        if (!addr) return "";
+        const src = document.getElementById("srcNet")?.value;
+        const chainKey = NETWORK_TO_LZ_META[src];
+        const bucket = chainKey && window.DVN_NAMES_BY_CHAIN[chainKey];
+        return (bucket && bucket[addr.toLowerCase()]) || "";
+      }
+
+      // ---------- boot ----------
+      populateNetworkSelectors();
+      loadDvnMetadata();
+      autoLoadReady = true;
+      scheduleAutoLoad();
+    </script>
+  </body>
+</html>
