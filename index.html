@@ -1321,7 +1321,9 @@
             ethCall(s.rpcUrl, endpoint, recvLibCalldata),
           ]);
           const sendLib = IEndpoint.decodeFunctionResult("getSendLibrary", sendLibRaw)[0];
-          const recvLib = IEndpoint.decodeFunctionResult("getReceiveLibrary", recvLibRaw)[0];
+          const recvLibResult = IEndpoint.decodeFunctionResult("getReceiveLibrary", recvLibRaw);
+          const recvLib = recvLibResult[0];
+          const recvLibIsDefault = recvLibResult[1];
 
           // uln configs + executor config + peer + enforced options + delegate + owner (parallel)
           const ulnSendCall  = IEndpoint.encodeFunctionData("getConfig", [oft, sendLib, dstEid, ULN_CONFIG_TYPE]);
@@ -1355,7 +1357,7 @@
 
           currentState = {
             src: s, dst: d, oft, endpoint, dstEid,
-            sendLib, recvLib,
+            sendLib, recvLib, recvLibIsDefault,
             uln: { send: decodeUln(ulnSendBytes), recv: decodeUln(ulnRecvBytes),
                    sendBytes: ulnSendBytes, recvBytes: ulnRecvBytes },
             exec: { ...decodeExec(execBytes), bytes: execBytes },
@@ -1459,11 +1461,13 @@
         const recvNew = recvInput.value;
         const sendSame = addrEq(sendNew, currentState.sendLib);
         const recvSame = addrEq(recvNew, currentState.recvLib);
+        const recvNeedsPin = recvSame && currentState.recvLibIsDefault;
         sendInput.classList.toggle("field-changed", !sendSame);
-        recvInput.classList.toggle("field-changed", !recvSame);
+        recvInput.classList.toggle("field-changed", !recvSame || recvNeedsPin);
         const lines = [];
         if (!sendSame) lines.push(`<span class="chg">send lib</span>  <code>${shorten(currentState.sendLib)}</code> → <code>${shorten(sendNew)}</code>`);
         if (!recvSame) lines.push(`<span class="chg">recv lib</span>  <code>${shorten(currentState.recvLib)}</code> → <code>${shorten(recvNew)}</code>`);
+        if (recvNeedsPin) lines.push(`<span class="chg">recv lib</span>  <code>${shorten(recvNew)}</code> is inherited default → explicit pin`);
         renderDiffSummary("libDiff", lines);
       }
       function renderDiffSummary(id, lines) {
@@ -1911,7 +1915,7 @@
           addCall(`setSendLibrary(oft, eid=${dstEid}, ${shorten(sendNew)})`, endpoint, data, "lib");
           n++;
         }
-        if (!addrEq(recvNew, currentState.recvLib)) {
+        if (!addrEq(recvNew, currentState.recvLib) || currentState.recvLibIsDefault) {
           const data = IEndpoint.encodeFunctionData("setReceiveLibrary",
             [oft, dstEid, ethers.getAddress(recvNew), 0]);
           addCall(`setReceiveLibrary(oft, eid=${dstEid}, ${shorten(recvNew)}, 0)`, endpoint, data, "lib");
