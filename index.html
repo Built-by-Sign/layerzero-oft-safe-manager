@@ -1392,12 +1392,13 @@
         document.getElementById("delegateCurrent").value = currentState.delegate;
         document.getElementById("delegateOwner").value = currentState.owner;
         const tgt = document.getElementById("delegateNew");
-        // default new delegate to the entered Safe address, else connected wallet, else current
+        // Default to the current delegate unless a Safe is explicitly entered.
+        // A connected owner/proposer wallet is not usually the LayerZero delegate.
         const safeInput = (document.getElementById("safeAddr").value || "").trim();
         let def = "";
-        try { def = safeInput ? ethers.getAddress(safeInput) : (userAddress || currentState.delegate); }
-        catch { def = userAddress || currentState.delegate; }
-        tgt.value = tgt.value || def;
+        try { def = safeInput ? ethers.getAddress(safeInput) : currentState.delegate; }
+        catch { def = currentState.delegate; }
+        tgt.value = def;
         document.getElementById("delegateStatus").textContent = "loaded";
         document.getElementById("delegateStatus").className = "pill ok";
         const ownerEl = document.getElementById("delegateOwner");
