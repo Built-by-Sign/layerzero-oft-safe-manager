@@ -29,6 +29,7 @@
         --yellow: #fbbf24;
         --yellow-dim: rgba(251, 191, 36, 0.12);
         --mono: "JetBrains Mono", monospace;
+        --batch-bar-max-height: min(360px, 42vh);
       }
 
       * {
@@ -42,7 +43,7 @@
         font-family: var(--mono);
         min-height: 100vh;
         line-height: 1.5;
-        padding-bottom: 220px;
+        padding-bottom: calc(var(--batch-bar-max-height) + 28px);
       }
       .app {
         max-width: 1040px;
@@ -303,16 +304,23 @@
         border-top: 2px solid var(--border-active);
         padding: 14px 24px 16px;
         z-index: 50;
+        max-height: var(--batch-bar-max-height);
+        overflow: hidden;
       }
       .batch-inner {
         max-width: 1040px;
         margin: 0 auto;
+        max-height: calc(var(--batch-bar-max-height) - 30px);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
       }
       .batch-head {
         display: flex;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 8px;
+        flex: 0 0 auto;
       }
       .batch-head .title {
         font-size: 12px;
@@ -320,6 +328,8 @@
       }
       .batch-list {
         max-height: 120px;
+        flex: 0 1 120px;
+        min-height: 34px;
         overflow-y: auto;
         font-size: 11px;
         color: var(--text-dim);
@@ -342,6 +352,12 @@
         display: flex;
         gap: 10px;
         justify-content: flex-end;
+        flex: 0 0 auto;
+      }
+      .batch-bar .log {
+        max-height: none;
+        min-height: 52px;
+        flex: 1 1 120px;
       }
       .muted {
         color: var(--text-muted);
@@ -904,6 +920,7 @@
       let walletType = null;
       let wcProviderInstance = null;
       let currentState = null; // reads cache
+      let loadSequence = 0; // cancels stale async loads when context changes
       const batch = []; // queued calls { label, to, value, data, group }
 
       // ---------- helpers ----------
@@ -912,6 +929,36 @@
       function dstKey() { return document.getElementById("dstNet").value; }
       function srcNet() { return net(srcKey()); }
       function dstNet() { return net(dstKey()); }
+      function contextSnapshot() {
+        return {
+          src: srcKey(),
+          dst: dstKey(),
+          oft: (document.getElementById("srcOft").value || "").trim(),
+          endpoint: (document.getElementById("srcEndpoint").value || "").trim(),
+        };
+      }
+      function contextMatchesSnapshot(snapshot) {
+        const now = contextSnapshot();
+        return now.src === snapshot.src &&
+          now.dst === snapshot.dst &&
+          now.oft === snapshot.oft &&
+          now.endpoint === snapshot.endpoint;
+      }
+      function invalidateLoadedState(reason, opts = {}) {
+        loadSequence++;
+        const hadState = !!currentState;
+        const hadBatch = batch.length > 0;
+        currentState = null;
+        const panels = document.getElementById("panels");
+        if (panels) panels.style.display = "none";
+        if (opts.clearBatch && hadBatch) {
+          batch.length = 0;
+          updateBatchUI();
+        }
+        if (reason && autoLoadReady && (hadState || hadBatch)) {
+          ctxLog(reason, "info");
+        }
+      }
       function logTo(id, msg, kind = "info") {
         const el = document.getElementById(id);
         if (!el) return;
@@ -1113,6 +1160,7 @@
           if (alt) { document.getElementById("dstNet").value = alt; onDstChange(); }
         }
         renderLibraryDefaults();
+        invalidateLoadedState("Source context changed; cleared loaded state and queued calls.", { clearBatch: true });
         scheduleAutoLoad();
       }
       function onDstChange() {
@@ -1122,6 +1170,7 @@
           if (alt) { document.getElementById("srcNet").value = alt; onSrcChange(); }
         }
         renderLibraryDefaults();
+        invalidateLoadedState("Destination context changed; cleared loaded state. Queued calls kept.");
         scheduleAutoLoad();
       }
       function renderLibraryDefaults() {
@@ -1299,12 +1348,15 @@
 
       // ---------- on-chain reads ----------
       async function loadAllPanels() {
+        const loadId = ++loadSequence;
+        const ctx = contextSnapshot();
         try {
-          const s = srcNet();
-          const d = dstNet();
-          const rawOft = (document.getElementById("srcOft").value || "").trim();
-          const rawEndpoint = (document.getElementById("srcEndpoint").value || "").trim();
+          const s = net(ctx.src);
+          const d = net(ctx.dst);
+          const rawOft = ctx.oft;
+          const rawEndpoint = ctx.endpoint;
           if (!rawOft || !rawEndpoint) {
+            invalidateLoadedState(null, { clearBatch: true });
             ctxLog("Paste your OFT and Endpoint addresses to load on-chain state.", "info");
             return;
           }
@@ -1359,8 +1411,13 @@
           const delegate     = IEndpoint.decodeFunctionResult("delegates", delegateRaw)[0];
           const ownerAddr    = IOFT.decodeFunctionResult("owner", ownerRaw)[0];
 
+          if (loadId !== loadSequence || !contextMatchesSnapshot(ctx)) {
+            ctxLog("Ignored stale on-chain load because the context changed.", "warn");
+            return;
+          }
+
           currentState = {
-            src: s, dst: d, oft, endpoint, dstEid,
+            src: s, dst: d, srcKey: ctx.src, dstKey: ctx.dst, oft, endpoint, dstEid,
             sendLib, sendLibIsDefault, recvLib, recvLibIsDefault,
             uln: { send: decodeUln(ulnSendBytes), recv: decodeUln(ulnRecvBytes),
                    sendBytes: ulnSendBytes, recvBytes: ulnRecvBytes },
@@ -1376,6 +1433,11 @@
           ctxLog("Loaded on-chain state ✓", "ok");
         } catch (e) {
           console.error(e);
+          if (loadId !== loadSequence || !contextMatchesSnapshot(ctx)) {
+            ctxLog("Ignored stale on-chain load failure because the context changed.", "warn");
+            return;
+          }
+          invalidateLoadedState(null, { clearBatch: true });
           ctxLog("Load failed: " + e.message, "err");
         }
       }
@@ -1488,6 +1550,9 @@
         }
       }
       document.addEventListener("input", (e) => {
+        if (e.target.id === "srcOft" || e.target.id === "srcEndpoint") {
+          invalidateLoadedState("Source OFT or endpoint changed; cleared loaded state and queued calls.", { clearBatch: true });
+        }
         if (!currentState) return;
         if (e.target.id === "libSendNew" || e.target.id === "libRecvNew") updateLibDiff();
         if (e.target.id === "execMaxSize" || e.target.id === "execAddr") updateExecDiff();
