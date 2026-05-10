@@ -5,6 +5,7 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "test": "node scripts/check-ledger-ui.mjs",
     "start": "bun run serve.ts",
     "serve": "bun run serve.ts"
   },

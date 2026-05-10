@@ -562,9 +562,9 @@
           <h3>Connect wallet</h3>
 
           <div class="modal-info">
-            Two supported modes (auto-detected at propose time):
+            Supported modes (auto-detected at propose time):
             <div class="mode-row">
-              <b>Owner EOA</b> — MetaMask, Rabby, hardware, or WC from a normal wallet.
+              <b>Owner EOA</b> — MetaMask, Rabby, direct Ledger, or WC from a normal wallet.
               Signs an EIP-712 <i>SafeTx</i> and posts one atomic MultiSend proposal to the
               Safe Transaction Service. You'll paste the Safe address below in the header.
             </div>
@@ -581,6 +581,19 @@
             <div class="option-sub">MetaMask, Rabby, Frame, etc. (injected provider)</div>
             <div class="option-actions">
               <button id="optInjected" class="primary" onclick="connectInjected()">Connect injected</button>
+            </div>
+          </div>
+
+          <div class="connect-option">
+            <div class="option-title">Ledger (WebHID)</div>
+            <div class="option-sub">Connect a USB Ledger directly from Chromium. Open the Ethereum app first.</div>
+            <label>Derivation path</label>
+            <input id="ledgerPath" placeholder="44'/60'/0'/0/0" spellcheck="false" />
+            <div class="option-actions" style="margin-top:8px">
+              <button class="ghost" onclick="setLedgerPath(&quot;44'/60'/0'/0/0&quot;)">Account 0</button>
+              <button class="ghost" onclick="setLedgerPath(&quot;44'/60'/1'/0/0&quot;)">Account 1</button>
+              <button id="optLedger" class="primary" onclick="connectLedger()">Connect Ledger</button>
+              <span id="ledgerHint" class="muted mini"></span>
             </div>
           </div>
 
@@ -867,11 +880,31 @@
       }
     </script>
 
+    <!-- Ledger WebHID modules are preloaded so the click handler can open WebHID immediately. -->
+    <script type="module">
+      try {
+        const [transportModule, ethModule] = await Promise.all([
+          import("https://esm.sh/@ledgerhq/hw-transport-webhid@6.30.6?bundle"),
+          import("https://esm.sh/@ledgerhq/hw-app-eth@6.45.17?bundle"),
+        ]);
+        window._LedgerTransportWebHID = transportModule.default;
+        window._LedgerEth = ethModule.default;
+        window._ledgerReady = true;
+        window.dispatchEvent(new Event("ledger-sdk-ready"));
+        console.log("[Ledger] WebHID modules loaded");
+      } catch (e) {
+        console.warn("[Ledger] WebHID modules failed:", e);
+        window._ledgerReady = false;
+        window.dispatchEvent(new Event("ledger-sdk-ready"));
+      }
+    </script>
+
     <script>
       // ---------- constants ----------
       const ULN_CONFIG_TYPE = 2;
       const EXECUTOR_CONFIG_TYPE = 1;
       const DEFAULT_OPTIONAL_DVN_COUNT = 255; // sentinel used in WireOFT.s.sol
+      const DEFAULT_LEDGER_PATH = "44'/60'/0'/0/0";
       const ORIGIN = "LayerZero OFT Safe Manager";
 
       const IEndpoint = new ethers.Interface([
@@ -902,6 +935,8 @@
       let userAddress = null;
       let walletType = null;
       let wcProviderInstance = null;
+      let ledgerTransport = null;
+      let ledgerEth = null;
       let currentState = null; // reads cache
       const batch = []; // queued calls { label, to, value, data, group }
 
@@ -1153,6 +1188,11 @@
           try { wcProviderInstance.disconnect(); } catch (e) {}
           wcProviderInstance = null;
         }
+        if (ledgerTransport) {
+          try { Promise.resolve(ledgerTransport.close()).catch(() => {}); } catch (e) {}
+          ledgerTransport = null;
+          ledgerEth = null;
+        }
         signer = null;
         userAddress = null;
         walletType = null;
@@ -1184,10 +1224,35 @@
         hint.textContent = window._wcReady === false
           ? "SDK failed to load; injected only"
           : (window._wcReady ? "SDK ready ✓" : "SDK loading…");
+        const ledgerPath = document.getElementById("ledgerPath");
+        let cachedLedgerPath = "";
+        try { cachedLedgerPath = localStorage.getItem("lz-ledger-path") || ""; } catch(e) {}
+        ledgerPath.value = ledgerPath.value || cachedLedgerPath || DEFAULT_LEDGER_PATH;
+        updateLedgerConnectState();
         document.getElementById("connectModal").classList.add("show");
       }
+
+      function updateLedgerConnectState() {
+        const ledgerButton = document.getElementById("optLedger");
+        const ledgerHint = document.getElementById("ledgerHint");
+        if (!ledgerButton || !ledgerHint) return;
+        const ledgerSupported = !!navigator.hid;
+        ledgerButton.disabled = !ledgerSupported || window._ledgerReady !== true;
+        if (!ledgerSupported) {
+          ledgerHint.textContent = "WebHID requires Chromium over HTTPS or localhost";
+        } else if (window._ledgerReady === false) {
+          ledgerHint.textContent = "Ledger SDK failed to load";
+        } else {
+          ledgerHint.textContent = window._ledgerReady ? "SDK ready ✓" : "SDK loading…";
+        }
+      }
+      window.addEventListener("ledger-sdk-ready", updateLedgerConnectState);
       window.hideConnectModal = function () {
         document.getElementById("connectModal").classList.remove("show");
+      };
+
+      window.setLedgerPath = function (path) {
+        document.getElementById("ledgerPath").value = path;
       };
 
       async function connectInjected() {
@@ -1265,7 +1330,115 @@
       window.connectInjected = connectInjected;
       window.connectWalletConnect = connectWalletConnect;
 
+      function normalizeLedgerPath(path) {
+        const clean = (path || "").trim();
+        if (!/^m?\/?\d+'?(\/\d+'?)*$/.test(clean)) {
+          throw new Error("Ledger derivation path should look like 44'/60'/0'/0/0");
+        }
+        return clean.replace(/^m\//, "");
+      }
+
+      function normalizeTypedValue(value) {
+        if (typeof value === "bigint") return value.toString();
+        if (Array.isArray(value)) return value.map(normalizeTypedValue);
+        if (value && typeof value === "object") {
+          return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, normalizeTypedValue(v)]));
+        }
+        return value;
+      }
+
+      function eip712DomainTypes(domain) {
+        const out = [];
+        if (domain.name !== undefined) out.push({ name: "name", type: "string" });
+        if (domain.version !== undefined) out.push({ name: "version", type: "string" });
+        if (domain.chainId !== undefined) out.push({ name: "chainId", type: "uint256" });
+        if (domain.verifyingContract !== undefined) out.push({ name: "verifyingContract", type: "address" });
+        if (domain.salt !== undefined) out.push({ name: "salt", type: "bytes32" });
+        return out;
+      }
+
+      function buildLedgerTypedData(domain, types, message) {
+        const primaryType = Object.keys(types).find((name) => name !== "EIP712Domain");
+        return {
+          types: {
+            EIP712Domain: eip712DomainTypes(domain),
+            ...types,
+          },
+          primaryType,
+          domain: normalizeTypedValue(domain),
+          message: normalizeTypedValue(message),
+        };
+      }
+
+      function ledgerSignatureToHex(sig) {
+        let v = Number(sig.v);
+        if (v < 27) v += 27;
+        return "0x" + sig.r.replace(/^0x/, "") + sig.s.replace(/^0x/, "") + v.toString(16).padStart(2, "0");
+      }
+
+      function isLedgerUserRejection(e) {
+        const msg = String(e?.message || e || "").toLowerCase();
+        return e?.statusCode === 0x6985 || msg.includes("denied") || msg.includes("rejected") || msg.includes("cancel");
+      }
+
+      function createLedgerSigner(eth, path, address) {
+        return {
+          async getAddress() { return address; },
+          async signTypedData(domain, types, message) {
+            const typedData = buildLedgerTypedData(domain, types, message);
+            try {
+              const sig = await eth.signEIP712Message(path, typedData);
+              return ledgerSignatureToHex(sig);
+            } catch (e) {
+              if (isLedgerUserRejection(e)) throw e;
+              ctxLog("Ledger clear-signing unavailable; falling back to hashed EIP-712 signing.", "warn");
+              const domainSeparator = ethers.TypedDataEncoder.hashDomain(domain).slice(2);
+              const messageHash = ethers.TypedDataEncoder.from(types).hash(message).slice(2);
+              const sig = await eth.signEIP712HashedMessage(path, domainSeparator, messageHash);
+              return ledgerSignatureToHex(sig);
+            }
+          },
+        };
+      }
+
+      async function connectLedger() {
+        try {
+          if (!navigator.hid) {
+            throw new Error("WebHID is not available. Use Chrome/Brave/Edge over HTTPS or localhost.");
+          }
+          if (!window._ledgerReady || !window._LedgerTransportWebHID || !window._LedgerEth) {
+            throw new Error("Ledger SDK is still loading or failed to load. Wait a moment, then click Connect Ledger again.");
+          }
+          const path = normalizeLedgerPath(document.getElementById("ledgerPath").value);
+          const supported = await window._LedgerTransportWebHID.isSupported();
+          if (!supported) throw new Error("This browser does not support Ledger WebHID.");
+
+          ctxLog("Requesting Ledger over WebHID…", "info");
+          ledgerTransport = await window._LedgerTransportWebHID.create();
+          ledgerEth = new window._LedgerEth(ledgerTransport);
+          ctxLog("Confirm the address on your Ledger…", "info");
+          const account = await ledgerEth.getAddress(path, true, false);
+          const address = ethers.getAddress(account.address);
+          signer = createLedgerSigner(ledgerEth, path, address);
+          setConnected(address, "ledger");
+          try {
+            localStorage.setItem("lz-wallet-type", "ledger");
+            localStorage.setItem("lz-ledger-path", path);
+          } catch(e) {}
+        } catch (e) {
+          ctxLog("Ledger connect error: " + (e.message || e), "err");
+          if (ledgerTransport) {
+            try { await ledgerTransport.close(); } catch (_) {}
+            ledgerTransport = null;
+            ledgerEth = null;
+          }
+          showConnectModal();
+        }
+      }
+      window.connectLedger = connectLedger;
+
       async function ensureChain(chainId) {
+        if (walletType === "ledger") return;
         // WalletConnect path: request switch via the WC provider
         if (walletType === "walletconnect" && wcProviderInstance) {
           try {

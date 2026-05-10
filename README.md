@@ -47,6 +47,9 @@ can upload via the Safe app's Transaction Builder.
 - A [WalletConnect Cloud](https://cloud.walletconnect.com) project ID (free) if
   you want to connect via WalletConnect. Injected wallets (MetaMask, Rabby,
   Frame) work without it.
+- A Chromium browser over `https://` or `localhost` if you want to connect a
+  Ledger directly via WebHID. Open the Ethereum app on the device before
+  connecting.
 - Optional: an [Alchemy](https://www.alchemy.com) API key for higher-throughput
   RPC reads. Without it the UI uses public RPCs (`publicnode`, `blastapi`, etc.).
 
@@ -63,9 +66,12 @@ bun run serve.ts
 
 Connect a wallet. The modal explains both modes:
 
-- **Owner EOA** (MetaMask / hardware / normal WC wallet): signs an EIP-712
-  `SafeTx` and posts one atomic MultiSend proposal to the Safe Transaction
-  Service. You paste the Safe address in the header.
+- **Owner EOA** (MetaMask / direct Ledger / normal WC wallet): signs an
+  EIP-712 `SafeTx` and posts one atomic MultiSend proposal to the Safe
+  Transaction Service. You paste the Safe address in the header.
+- **Ledger (WebHID)**: connects directly to a USB Ledger without an injected
+  provider. The UI verifies the selected derivation path on-device, then uses
+  the Ledger to sign the SafeTx typed data.
 - **Safe{Wallet} via WalletConnect** (connect the Safe itself from
   app.safe.global → WalletConnect → "use as wallet"): each queued call is sent
   as its own `eth_sendTransaction`, producing one proposal per call (no atomic
