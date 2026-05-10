@@ -876,6 +876,7 @@
 
       const IEndpoint = new ethers.Interface([
         "function getSendLibrary(address oapp, uint32 eid) view returns (address)",
+        "function isDefaultSendLibrary(address oapp, uint32 eid) view returns (bool)",
         "function getReceiveLibrary(address oapp, uint32 eid) view returns (address, bool)",
         "function getConfig(address oapp, address lib, uint32 eid, uint32 configType) view returns (bytes)",
         "function delegates(address oapp) view returns (address)",
@@ -1315,12 +1316,15 @@
 
           // send/receive libs
           const sendLibCalldata = IEndpoint.encodeFunctionData("getSendLibrary", [oft, dstEid]);
+          const sendDefaultCalldata = IEndpoint.encodeFunctionData("isDefaultSendLibrary", [oft, dstEid]);
           const recvLibCalldata = IEndpoint.encodeFunctionData("getReceiveLibrary", [oft, dstEid]);
-          const [sendLibRaw, recvLibRaw] = await Promise.all([
+          const [sendLibRaw, sendDefaultRaw, recvLibRaw] = await Promise.all([
             ethCall(s.rpcUrl, endpoint, sendLibCalldata),
+            ethCall(s.rpcUrl, endpoint, sendDefaultCalldata),
             ethCall(s.rpcUrl, endpoint, recvLibCalldata),
           ]);
           const sendLib = IEndpoint.decodeFunctionResult("getSendLibrary", sendLibRaw)[0];
+          const sendLibIsDefault = IEndpoint.decodeFunctionResult("isDefaultSendLibrary", sendDefaultRaw)[0];
           const recvLibResult = IEndpoint.decodeFunctionResult("getReceiveLibrary", recvLibRaw);
           const recvLib = recvLibResult[0];
           const recvLibIsDefault = recvLibResult[1];
@@ -1357,7 +1361,7 @@
 
           currentState = {
             src: s, dst: d, oft, endpoint, dstEid,
-            sendLib, recvLib, recvLibIsDefault,
+            sendLib, sendLibIsDefault, recvLib, recvLibIsDefault,
             uln: { send: decodeUln(ulnSendBytes), recv: decodeUln(ulnRecvBytes),
                    sendBytes: ulnSendBytes, recvBytes: ulnRecvBytes },
             exec: { ...decodeExec(execBytes), bytes: execBytes },
@@ -1462,11 +1466,13 @@
         const recvNew = recvInput.value;
         const sendSame = addrEq(sendNew, currentState.sendLib);
         const recvSame = addrEq(recvNew, currentState.recvLib);
+        const sendNeedsPin = sendSame && currentState.sendLibIsDefault;
         const recvNeedsPin = recvSame && currentState.recvLibIsDefault;
-        sendInput.classList.toggle("field-changed", !sendSame);
+        sendInput.classList.toggle("field-changed", !sendSame || sendNeedsPin);
         recvInput.classList.toggle("field-changed", !recvSame || recvNeedsPin);
         const lines = [];
         if (!sendSame) lines.push(`<span class="chg">send lib</span>  <code>${shorten(currentState.sendLib)}</code> → <code>${shorten(sendNew)}</code>`);
+        if (sendNeedsPin) lines.push(`<span class="chg">send lib</span>  <code>${shorten(sendNew)}</code> is inherited default → explicit pin`);
         if (!recvSame) lines.push(`<span class="chg">recv lib</span>  <code>${shorten(currentState.recvLib)}</code> → <code>${shorten(recvNew)}</code>`);
         if (recvNeedsPin) lines.push(`<span class="chg">recv lib</span>  <code>${shorten(recvNew)}</code> is inherited default → explicit pin`);
         renderDiffSummary("libDiff", lines);
@@ -1910,7 +1916,7 @@
         const sendNew = document.getElementById("libSendNew").value.trim();
         const recvNew = document.getElementById("libRecvNew").value.trim();
         let n = 0;
-        if (!addrEq(sendNew, currentState.sendLib)) {
+        if (!addrEq(sendNew, currentState.sendLib) || currentState.sendLibIsDefault) {
           const data = IEndpoint.encodeFunctionData("setSendLibrary",
             [oft, dstEid, ethers.getAddress(sendNew)]);
           addCall(`setSendLibrary(oft, eid=${dstEid}, ${shorten(sendNew)})`, endpoint, data, "lib");
