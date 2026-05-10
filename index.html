@@ -885,7 +885,7 @@
       try {
         const [transportModule, ethModule] = await Promise.all([
           import("https://esm.sh/@ledgerhq/hw-transport-webhid@6.30.6?bundle"),
-          import("https://esm.sh/@ledgerhq/hw-app-eth@6.45.17?bundle"),
+          import("https://esm.sh/@ledgerhq/hw-app-eth@6.29.3?bundle"),
         ]);
         window._LedgerTransportWebHID = transportModule.default;
         window._LedgerEth = ethModule.default;

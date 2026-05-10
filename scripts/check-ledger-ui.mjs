@@ -14,6 +14,7 @@ const requiredSnippets = [
   "function buildLedgerTypedData",
   "signEIP712Message",
   "signEIP712HashedMessage",
+  "@ledgerhq/hw-app-eth@6.29.3?bundle",
   'walletType === "ledger"',
   "localStorage.setItem(\"lz-ledger-path\"",
   "window.connectLedger = connectLedger",
@@ -23,6 +24,11 @@ const missing = requiredSnippets.filter((snippet) => !html.includes(snippet));
 if (missing.length) {
   console.error("Missing Ledger UI/signing snippets:");
   for (const snippet of missing) console.error(`- ${snippet}`);
+  process.exit(1);
+}
+
+if (html.includes("@ledgerhq/hw-app-eth@6.45.17?bundle")) {
+  console.error("Broken Ledger app-eth esm.sh bundle is still referenced.");
   process.exit(1);
 }
 
